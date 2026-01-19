@@ -28,6 +28,7 @@ struct WindowsCursorResult {
 enum WindowsCursorError: LocalizedError {
     case conversionFailed(String)
     case imageDecodeFailed
+    case imageTooLarge(width: Int, height: Int)
 
     var errorDescription: String? {
         switch self {
@@ -35,6 +36,8 @@ enum WindowsCursorError: LocalizedError {
             return "Conversion failed: \(message)"
         case .imageDecodeFailed:
             return "Failed to decode image data"
+        case .imageTooLarge(let width, let height):
+            return "Image too large (\(width)x\(height)). Maximum supported size is 4096x4096 pixels."
         }
     }
 }
@@ -163,18 +166,25 @@ final class WindowsCursorConverter: @unchecked Sendable {
     private func convertParseResult(_ parseResult: WindowsCursorParseResult, filename: String) throws -> WindowsCursorResult {
         let maxFrameCount = 24
 
+        // Validate image size to prevent memory issues
+        try validateImageSize(parseResult.image, filename: filename)
+
         // Check if we need to downsample
         if parseResult.frameCount > maxFrameCount {
             print("Windows cursor '\(filename)' has \(parseResult.frameCount) frames, downsampling to \(maxFrameCount)")
 
-            // Downsample the sprite sheet
-            guard let downsampledData = downsampleSpriteSheet(
-                parseResult.image,
-                fromFrameCount: parseResult.frameCount,
-                toFrameCount: maxFrameCount,
-                frameWidth: parseResult.width,
-                frameHeight: parseResult.height
-            ) else {
+            // Downsample the sprite sheet with autoreleasepool for memory management
+            let downsampledData: Data? = autoreleasepool {
+                return downsampleSpriteSheet(
+                    parseResult.image,
+                    fromFrameCount: parseResult.frameCount,
+                    toFrameCount: maxFrameCount,
+                    frameWidth: parseResult.width,
+                    frameHeight: parseResult.height
+                )
+            }
+
+            guard let downsampledData = downsampledData else {
                 throw WindowsCursorError.imageDecodeFailed
             }
 
@@ -208,6 +218,22 @@ final class WindowsCursorConverter: @unchecked Sendable {
             imageData: pngData,
             filename: filename
         )
+    }
+
+    /// Validate image size to prevent memory issues
+    /// - Parameters:
+    ///   - image: CGImage to validate
+    ///   - filename: Filename for error reporting
+    /// - Throws: WindowsCursorError.imageTooLarge if image exceeds maximum dimensions
+    private func validateImageSize(_ image: CGImage, filename: String) throws {
+        let maxDimension = 4096
+        let width = image.width
+        let height = image.height
+
+        if width > maxDimension || height > maxDimension {
+            print("Image '\(filename)' is too large: \(width)x\(height)")
+            throw WindowsCursorError.imageTooLarge(width: width, height: height)
+        }
     }
 
     /// Downsample a sprite sheet by extracting evenly distributed frames

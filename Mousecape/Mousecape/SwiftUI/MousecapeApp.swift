@@ -85,8 +85,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Check and repair Helper if needed (fixes error 78 after app update)
-        checkAndRepairHelper()
+        // Check and repair Helper asynchronously to avoid blocking UI
+        Task {
+            await checkAndRepairHelper()
+        }
 
         // Apply last cape on launch if enabled
         let applyLastCapeOnLaunch = UserDefaults.standard.bool(forKey: "applyLastCapeOnLaunch")
@@ -110,7 +112,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Check if Helper is in a bad state (error 78) and repair it
     /// This fixes the issue when app is updated while Helper is still running
-    private func checkAndRepairHelper() {
+    private func checkAndRepairHelper() async {
         let helperIdentifier = "com.sdmj76.mousecloakhelper"
         let service = SMAppService.loginItem(identifier: helperIdentifier)
 
@@ -122,8 +124,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         helperLog("=== Helper Health Check ===")
 
-        // Check launchd status
-        let launchdStatus = checkHelperLaunchdStatus(helperIdentifier)
+        // Check launchd status asynchronously
+        let launchdStatus = await checkHelperLaunchdStatus(helperIdentifier)
         helperLog("launchd status: \(launchdStatus)")
 
         // If Helper is running with exit code 78, it needs repair
@@ -131,22 +133,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             helperLog("Helper in bad state, attempting repair...")
 
             // Force cleanup and re-register
-            forceCleanupHelper(helperIdentifier)
+            await forceCleanupHelper(helperIdentifier)
 
             do {
                 // Unregister first
-                try? service.unregister()
+                try await service.unregister()
                 helperLog("Unregistered old Helper")
 
                 // Small delay to let launchd settle
-                Thread.sleep(forTimeInterval: 0.5)
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
 
                 // Re-register
-                try service.register()
+                try await service.register()
                 helperLog("Re-registered Helper")
 
                 // Verify
-                let newStatus = checkHelperLaunchdStatus(helperIdentifier)
+                let newStatus = await checkHelperLaunchdStatus(helperIdentifier)
                 helperLog("After repair - launchd status: \(newStatus)")
 
                 if newStatus.contains("Running") {
@@ -166,7 +168,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         helperLog("=== End Health Check ===")
     }
 
-    private func forceCleanupHelper(_ identifier: String) {
+    private func forceCleanupHelper(_ identifier: String) async {
         let uid = getuid()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
@@ -179,39 +181,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         helperLog("launchctl bootout exit code: \(process.terminationStatus)")
     }
 
-    private func checkHelperLaunchdStatus(_ identifier: String) -> String {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = ["list"]
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+    private func checkHelperLaunchdStatus(_ identifier: String) async -> String {
+        return await withCheckedContinuation { continuation in
+            let process = Process()
+            let pipe = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            process.arguments = ["list"]
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
 
-        do {
-            try process.run()
-            process.waitUntilExit()
+            do {
+                try process.run()
+                process.waitUntilExit()
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8) ?? ""
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                let output = String(data: data, encoding: .utf8) ?? ""
 
-            for line in output.components(separatedBy: "\n") {
-                if line.contains(identifier) {
-                    let parts = line.split(separator: "\t").map(String.init)
-                    if parts.count >= 3 {
-                        let pid = parts[0]
-                        let exitCode = parts[1]
-                        if pid == "-" {
-                            return "Not running (exit code: \(exitCode))"
-                        } else {
-                            return "Running (PID: \(pid), exit code: \(exitCode))"
+                for line in output.components(separatedBy: "\n") {
+                    if line.contains(identifier) {
+                        let parts = line.split(separator: "\t").map(String.init)
+                        if parts.count >= 3 {
+                            let pid = parts[0]
+                            let exitCode = parts[1]
+                            if pid == "-" {
+                                continuation.resume(returning: "Not running (exit code: \(exitCode))")
+                                return
+                            } else {
+                                continuation.resume(returning: "Running (PID: \(pid), exit code: \(exitCode))")
+                                return
+                            }
                         }
+                        continuation.resume(returning: line)
+                        return
                     }
-                    return line
                 }
+                continuation.resume(returning: "Not found in launchctl list")
+            } catch {
+                continuation.resume(returning: "Check failed: \(error.localizedDescription)")
             }
-            return "Not found in launchctl list"
-        } catch {
-            return "Check failed: \(error.localizedDescription)"
         }
     }
 

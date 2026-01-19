@@ -50,6 +50,9 @@ typedef NS_ENUM(NSInteger, MCErrorCode) {
     MCErrorHotspotOutOfBoundsCode = -201     // Hotspot position out of cursor bounds
 };
 
+// Hotspot validation constants
+extern const CGFloat   MCMaxHotspotValue;  // Maximum hotspot coordinate value (31.99)
+
 extern const CGFloat   MCCursorCreatorVersion;
 extern const CGFloat   MCCursorParserVersion;
 extern const NSString *MCCursorDictionaryMinimumVersionKey;

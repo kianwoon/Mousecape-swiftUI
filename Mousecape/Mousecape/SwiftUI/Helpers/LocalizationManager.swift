@@ -233,7 +233,12 @@ private let localizationStrings: [AppLanguage: [String: String]] = [
         "Y coordinate %.1f is negative": "Y coordinate %.1f is negative",
         "Y coordinate %.1f exceeds height %.1f": "Y coordinate %.1f exceeds height %.1f",
         "Import failed": "Import failed",
-        "Unable to read the cape file.": "Unable to read the cape file."
+        "Unable to read the cape file.": "Unable to read the cape file.",
+
+        // GIF Import Warnings
+        "gif_decode_warning_title": "GIF Import Warning",
+        "gif_decode_warning_message": "%d out of %d frames failed to decode. The animation may not play correctly.",
+        "ok": "OK"
     ],
 
     .chinese: [
@@ -425,7 +430,12 @@ private let localizationStrings: [AppLanguage: [String: String]] = [
         "Y coordinate %.1f is negative": "Y 坐标 %.1f 为负数",
         "Y coordinate %.1f exceeds height %.1f": "Y 坐标 %.1f 超过高度 %.1f",
         "Import failed": "导入失败",
-        "Unable to read the cape file.": "无法读取Cape文件。"
+        "Unable to read the cape file.": "无法读取Cape文件。",
+
+        // GIF Import Warnings
+        "gif_decode_warning_title": "GIF 导入警告",
+        "gif_decode_warning_message": "%d 帧中有 %d 帧解码失败。动画可能无法正常播放。",
+        "ok": "确定"
     ]
 ]
 

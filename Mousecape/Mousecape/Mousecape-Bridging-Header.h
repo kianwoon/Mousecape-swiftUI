@@ -23,6 +23,9 @@
 // Scale utilities (private CoreGraphics API)
 #import "scale.h"
 
+// Constants and definitions
+#import "MCDefs.h"
+
 // Logging system (only in DEBUG builds)
 #ifdef DEBUG
 #import "MCLogger.h"

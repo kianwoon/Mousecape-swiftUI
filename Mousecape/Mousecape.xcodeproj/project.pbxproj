@@ -31,8 +31,8 @@
 		DE6B14B42F0512EE00742257 /* WindowsCursorParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE6B14B32F0512EE00742257 /* WindowsCursorParser.swift */; };
 		DEBC96002F16577D004E6C07 /* MCLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = DEBC95FF2F16577D004E6C07 /* MCLogger.m */; };
 		DEBC96012F16577D004E6C07 /* MCLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = DEBC95FF2F16577D004E6C07 /* MCLogger.m */; };
-		DEBC96042F165800004E6C07 /* MCLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = DEBC95FF2F16577D004E6C07 /* MCLogger.m */; };
 		DEBC96032F1657A4004E6C07 /* DebugLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEBC96022F1657A4004E6C07 /* DebugLogger.swift */; };
+		DEBC96042F165800004E6C07 /* MCLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = DEBC95FF2F16577D004E6C07 /* MCLogger.m */; };
 		FA000001UTITYPES00000001 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA000001UTITYPES00000000 /* UniformTypeIdentifiers.framework */; };
 		FA1DC01919527A73009E879C /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA359844189DBA3800288163 /* SystemConfiguration.framework */; };
 		FA1DC01A19527A79009E879C /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA254779189D85890038E1D9 /* ApplicationServices.framework */; };
@@ -151,6 +151,13 @@
 		DEBC95FE2F16577D004E6C07 /* MCLogger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MCLogger.h; sourceTree = "<group>"; };
 		DEBC95FF2F16577D004E6C07 /* MCLogger.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MCLogger.m; sourceTree = "<group>"; };
 		DEBC96022F1657A4004E6C07 /* DebugLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLogger.swift; sourceTree = "<group>"; };
+		DEDC67AB2F1DE7EF008B35FC /* ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = ARCHITECTURE.md; path = ../ARCHITECTURE.md; sourceTree = SOURCE_ROOT; };
+		DEDC67AC2F1DE7EF008B35FC /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = CLAUDE.md; path = ../CLAUDE.md; sourceTree = SOURCE_ROOT; };
+		DEDC67AD2F1DE7EF008B35FC /* CONTRIBUTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = CONTRIBUTING.md; path = ../CONTRIBUTING.md; sourceTree = SOURCE_ROOT; };
+		DEDC67AE2F1DE7EF008B35FC /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; name = LICENSE; path = ../LICENSE; sourceTree = SOURCE_ROOT; };
+		DEDC67AF2F1DE7EF008B35FC /* PRIVACY */ = {isa = PBXFileReference; lastKnownFileType = text; name = PRIVACY; path = ../PRIVACY; sourceTree = SOURCE_ROOT; };
+		DEDC67B02F1DE7EF008B35FC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = SOURCE_ROOT; };
+		DEDC67B12F1DE7EF008B35FC /* RELEASE_NOTES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = RELEASE_NOTES.md; path = ../RELEASE_NOTES.md; sourceTree = SOURCE_ROOT; };
 		FA000001UTITYPES00000000 /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
 		FA1DC01719527A56009E879C /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		FA254779189D85890038E1D9 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
@@ -325,6 +332,13 @@
 		FAC69F58189D603C00BC829D = {
 			isa = PBXGroup;
 			children = (
+				DEDC67AB2F1DE7EF008B35FC /* ARCHITECTURE.md */,
+				DEDC67AC2F1DE7EF008B35FC /* CLAUDE.md */,
+				DEDC67AD2F1DE7EF008B35FC /* CONTRIBUTING.md */,
+				DEDC67AE2F1DE7EF008B35FC /* LICENSE */,
+				DEDC67AF2F1DE7EF008B35FC /* PRIVACY */,
+				DEDC67B02F1DE7EF008B35FC /* README.md */,
+				DEDC67B12F1DE7EF008B35FC /* RELEASE_NOTES.md */,
 				FAC69F6A189D603C00BC829D /* Mousecape */,
 				FAC69FAF189D608900BC829D /* mousecloak */,
 				FAE5D54A19526F82007620DE /* mousecloakHelper */,
@@ -1181,8 +1195,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.sdmj76.Mousecape;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				SWIFT_OBJC_BRIDGING_HEADER = "Mousecape/Mousecape-Bridging-Header.h";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OBJC_BRIDGING_HEADER = "Mousecape/Mousecape-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
 				WRAPPER_EXTENSION = app;

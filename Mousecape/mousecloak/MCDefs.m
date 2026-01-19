@@ -24,6 +24,9 @@ NSString *defaultCursors[] = {
 
 NSString *MCErrorDomain = @"com.alexzielenski.mousecape.error";
 
+// Hotspot validation constant
+const CGFloat   MCMaxHotspotValue                    = 31.99;
+
 const CGFloat   MCCursorCreatorVersion               = 2.0;
 const CGFloat   MCCursorParserVersion                = 2.0;
 

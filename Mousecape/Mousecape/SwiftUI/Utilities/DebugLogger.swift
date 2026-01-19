@@ -227,27 +227,57 @@ final class DebugLogger: @unchecked Sendable {
         return totalSize
     }
 
-    /// Clean logs older than 24 hours
+    /// Clean logs older than 24 hours and enforce total size limit
     static func cleanOldLogs() {
         let logsDir = logsDirectory
         let cutoffDate = Date().addingTimeInterval(-24 * 60 * 60) // 24 hours ago
+        let maxTotalSize: Int64 = 100 * 1024 * 1024 // 100MB total limit
 
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: logsDir,
-            includingPropertiesForKeys: [.contentModificationDateKey],
+            includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
             options: .skipsHiddenFiles
         ) else {
             return
         }
 
+        // Filter log files and get their metadata
+        var logFiles: [(url: URL, modDate: Date, size: Int64)] = []
         for file in files {
             guard file.pathExtension == "log" else { continue }
 
-            if let attrs = try? file.resourceValues(forKeys: [.contentModificationDateKey]),
+            if let attrs = try? file.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey]),
                let modDate = attrs.contentModificationDate,
-               modDate < cutoffDate {
-                // File is older than 24 hours, delete it
-                try? FileManager.default.removeItem(at: file)
+               let size = attrs.fileSize {
+                logFiles.append((url: file, modDate: modDate, size: Int64(size)))
+            }
+        }
+
+        // Sort by modification date (oldest first)
+        logFiles.sort { $0.modDate < $1.modDate }
+
+        // Phase 1: Delete files older than 24 hours
+        var remainingFiles: [(url: URL, modDate: Date, size: Int64)] = []
+        for logFile in logFiles {
+            if logFile.modDate < cutoffDate {
+                try? FileManager.default.removeItem(at: logFile.url)
+            } else {
+                remainingFiles.append(logFile)
+            }
+        }
+
+        // Phase 2: Enforce total size limit by deleting oldest files
+        var totalSize: Int64 = remainingFiles.reduce(0) { $0 + $1.size }
+        var filesToKeep: [(url: URL, modDate: Date, size: Int64)] = []
+
+        // Keep files from newest to oldest until we hit the size limit
+        for logFile in remainingFiles.reversed() {
+            if totalSize <= maxTotalSize {
+                filesToKeep.append(logFile)
+            } else {
+                // Would exceed limit, delete this file
+                try? FileManager.default.removeItem(at: logFile.url)
+                totalSize -= logFile.size
             }
         }
     }

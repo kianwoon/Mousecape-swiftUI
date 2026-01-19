@@ -552,14 +552,14 @@ struct CursorDetailView: View {
     // MARK: - Validation
 
     /// Maximum allowed hotspot value (32x32 cursor, hot spot must be < size)
-    /// Use same value as in loadWindowsCursor to ensure consistency
-    private let maxHotspot = 31.99
+    /// Use the constant from MCDefs.h for consistency with apply.m
+    private var maxHotspot: CGFloat { CGFloat(MCMaxHotspotValue) }
 
-    /// Check if hotspot X is valid (0 <= x < 32)
-    private var isHotspotXValid: Bool { hotspotX >= 0 && hotspotX < maxHotspot }
+    /// Check if hotspot X is valid (0 <= x <= MCMaxHotspotValue)
+    private var isHotspotXValid: Bool { hotspotX >= 0 && hotspotX <= maxHotspot }
 
-    /// Check if hotspot Y is valid (0 <= y < 32)
-    private var isHotspotYValid: Bool { hotspotY >= 0 && hotspotY < maxHotspot }
+    /// Check if hotspot Y is valid (0 <= y <= MCMaxHotspotValue)
+    private var isHotspotYValid: Bool { hotspotY >= 0 && hotspotY <= maxHotspot }
 
     /// Check if frame count is valid (>= 1)
     private var isFrameCountValid: Bool { frameCount >= 1 }
@@ -1068,9 +1068,12 @@ struct CursorPreviewDropZone: View {
         var totalDuration: Double = 0.0
         var frameWidth: Int = 0
         var frameHeight: Int = 0
+        var failedFrames = 0
 
         for i in 0..<frameCount {
             guard let cgImage = CGImageSourceCreateImageAtIndex(imageSource, i, nil) else {
+                failedFrames += 1
+                debugLog("Failed to decode GIF frame \(i)")
                 continue
             }
 
@@ -1101,6 +1104,24 @@ struct CursorPreviewDropZone: View {
         guard !frames.isEmpty else {
             print("Failed to extract any frames from GIF")
             return false
+        }
+
+        // Warn if too many frames failed to decode
+        if failedFrames > 0 {
+            let failureRate = Double(failedFrames) / Double(frameCount)
+            debugLog("GIF import: \(failedFrames)/\(frameCount) frames failed to decode (\(String(format: "%.1f%%", failureRate * 100)))")
+
+            if failureRate > 0.2 {
+                // More than 20% frames failed - show warning to user
+                DispatchQueue.main.async {
+                    let alert = NSAlert()
+                    alert.messageText = LocalizationManager.shared.localized("gif_decode_warning_title")
+                    alert.informativeText = String(format: LocalizationManager.shared.localized("gif_decode_warning_message"), failedFrames, frameCount)
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: LocalizationManager.shared.localized("ok"))
+                    alert.runModal()
+                }
+            }
         }
 
         // Downsample frames to maximum 24 if needed (system limit)
@@ -1386,11 +1407,11 @@ struct CursorPreviewDropZone: View {
             var scaledHotspotX = scaledHotspotXPixels / 2.0
             var scaledHotspotY = scaledHotspotYPixels / 2.0
 
-            // Clamp hotspot to valid range [0, 32) - must be within cursor size
+            // Clamp hotspot to valid range [0, MCMaxHotspotValue]
             // This prevents CGSRegisterCursorWithImages from failing with CGError=1000
-            let maxHotspot: CGFloat = 31.99  // Just under 32 to stay within bounds
-            scaledHotspotX = min(max(0, scaledHotspotX), maxHotspot)
-            scaledHotspotY = min(max(0, scaledHotspotY), maxHotspot)
+            // Use the same constant as defined in MCDefs.h
+            scaledHotspotX = min(max(0, scaledHotspotX), CGFloat(MCMaxHotspotValue))
+            scaledHotspotY = min(max(0, scaledHotspotY), CGFloat(MCMaxHotspotValue))
 
             // Set hotspot (in points)
             cursor.hotSpot = NSPoint(x: scaledHotspotX, y: scaledHotspotY)
