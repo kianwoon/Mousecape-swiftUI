@@ -1,24 +1,52 @@
-# Mousecape-swiftUI
+<div align="center">
+  <a href="https://github.com/sdmj76/Mousecape-swiftUI" target="_blank">
+    <img width="160" src="Screenshot/icon.png" alt="logo">
+  </a>
+  <h2 id="koishi">Mousecape-swiftUI</h1>
 
+<p>
+  <!-- GitHub Downloads -->
+  <a href="https://github.com/sdmj76/Mousecape-swiftUI/releases">
+    <img src="https://img.shields.io/github/downloads/sdmj76/Mousecape-swiftUI/total" alt="GitHub all releases">
+  </a>
+  <!-- GitHub Release Version -->
+  <a href="https://github.com/sdmj76/Mousecape-swiftUI/releases">
+    <img src="https://img.shields.io/github/v/release/sdmj76/Mousecape-swiftUI" alt="GitHub release (with filter)">
+  </a>
+  <!-- GitHub Issues -->
+  <a href="https://github.com/sdmj76/Mousecape-swiftUI/issues">
+    <img src="https://img.shields.io/github/issues/sdmj76/Mousecape-swiftUI" alt="GitHub issues">
+  </a>
+  <!-- GitHub Stars -->
+  <a href="https://github.com/sdmj76/Mousecape-swiftUI/stargazers">
+    <img src="https://img.shields.io/github/stars/sdmj76/Mousecape-swiftUI" alt="GitHub Repo stars">
+  </a>
+</p>
+
+A free macOS cursor manager that allows you to easily replace Mac system pointers.
+<br/>一款免费的 macOS 光标管理器，让你轻松替换 Mac 系统指针。
+<br/>
+<br/>
+**Built with SwiftUI, fully adapted to Liquid Glass design language, with complete support for macOS Tahoe.
+<br/>使用 SwiftUI 构建，全面适配液态玻璃设计语言，完整支持 macOS Tahoe。**
+<br/>
+<br/>
 **[English](#english) | [中文](#中文)**
-
----
+</div>
 
 <a id="english"></a>
 ## English
 
-A free macOS cursor manager that allows you to easily replace Mac system pointers.
+<div align="center" style="display: flex; gap: 20px; justify-content: center; align-items: flex-start;">
+  <img src="Screenshot/Home.gif" width="48%" style="height: auto;" />
+  <img src="Screenshot/Edit.gif" width="48%" style="height: auto;" />
+</div>
 
-Built with SwiftUI, fully adapted to Liquid Glass design language, with complete support for macOS Tahoe.
-
-**System Requirements: macOS Sequoia (15) or later**
-
-![Home](Screenshot/Home_en.png)
-![Edit](Screenshot/Edit_en.png)
 
 > The cursor theme "Kiriko" shown in the screenshots is created by [ArakiCC](https://space.bilibili.com/14913641), available in the example files.
 
 ## Features
+**System Requirements: macOS Sequoia (15) or later**
 
 - Customize Mac system cursors, supporting both static and animated cursors
 - One-click import of Windows cursor formats (.cur / .ani)
@@ -92,13 +120,6 @@ If the folder contains an `*.inf` file, Mousecape will automatically parse it to
 2. Drag and drop your cursor image into the provided field
 3. Set size, hotspot, and other parameters
 4. Save and apply your theme
-
-### Animated Cursor Creation
-
-1. Set the frame count in the edit window
-2. Adjust the frame duration
-3. Create an image with all cursor frames **stacked vertically**
-4. Mousecape will automatically iterate through each frame from top to bottom
 
 ### Supported Image Formats
 
@@ -212,18 +233,15 @@ This is just a tool, and I've polished its UI. But what matters most is your cur
 <a id="中文"></a>
 ## 中文
 
-一款免费的 macOS 光标管理器，让你轻松替换 Mac 系统指针。
-
-使用 SwiftUI 构建，全面适配液态玻璃设计语言，完整支持 macOS Tahoe。
-
-**系统要求：macOS Sequoia (15) 或更高版本**
-
-![主页](Screenshot/Home_zh.png)
-![编辑](Screenshot/Edit_zh.png)
+<div align="center" style="display: flex; gap: 20px; justify-content: center; align-items: flex-start;">
+  <img src="Screenshot/Home.gif" width="48%" style="height: auto;" />
+  <img src="Screenshot/Edit.gif" width="48%" style="height: auto;" />
+</div>
 
 > 截图中展示的光标主题 "Kiriko" 由 [ArakiCC](https://space.bilibili.com/14913641) 制作，在示例文件中提供。
 
 ## 功能特性
+**系统要求：macOS Sequoia (15) 或更高版本**
 
 - 自定义 Mac 系统光标，支持静态和动画光标
 - 一键导入 Windows 格式指针（.cur / .ani）
@@ -297,13 +315,6 @@ Mousecape 支持批量导入 Windows 光标主题：
 2. 将光标图片拖放到提供的字段中
 3. 设置尺寸、热点等参数
 4. 保存并应用你的主题
-
-### 动画光标制作
-
-1. 在编辑窗口中设置帧数
-2. 调整帧持续时间
-3. 创建一张将所有光标帧**垂直堆叠**的图片
-4. Mousecape 会自动从上到下遍历每一帧
 
 ### 支持的图片格式
 
