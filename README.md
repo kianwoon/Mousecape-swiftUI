@@ -4,25 +4,6 @@
   </a>
   <h2 id="koishi">Mousecape-swiftUI</h1>
 
-<p>
-  <!-- GitHub Downloads -->
-  <a href="https://github.com/sdmj76/Mousecape-swiftUI/releases">
-    <img src="https://img.shields.io/github/downloads/sdmj76/Mousecape-swiftUI/total" alt="GitHub all releases">
-  </a>
-  <!-- GitHub Release Version -->
-  <a href="https://github.com/sdmj76/Mousecape-swiftUI/releases">
-    <img src="https://img.shields.io/github/v/release/sdmj76/Mousecape-swiftUI" alt="GitHub release (with filter)">
-  </a>
-  <!-- GitHub Issues -->
-  <a href="https://github.com/sdmj76/Mousecape-swiftUI/issues">
-    <img src="https://img.shields.io/github/issues/sdmj76/Mousecape-swiftUI" alt="GitHub issues">
-  </a>
-  <!-- GitHub Stars -->
-  <a href="https://github.com/sdmj76/Mousecape-swiftUI/stargazers">
-    <img src="https://img.shields.io/github/stars/sdmj76/Mousecape-swiftUI" alt="GitHub Repo stars">
-  </a>
-</p>
-
 A free macOS cursor manager that allows you to easily replace Mac system pointers.
 <br/>一款免费的 macOS 光标管理器，让你轻松替换 Mac 系统指针。
 <br/>
