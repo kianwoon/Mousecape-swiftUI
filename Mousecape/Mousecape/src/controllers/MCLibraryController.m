@@ -91,8 +91,24 @@
         return validationError; // Return validation error to caller
     }
 
+    // Check for duplicate identifier and auto-rename if needed
     if ([[self.capes valueForKeyPath:@"identifier"] containsObject:lib.identifier]) {
         lib.identifier = [lib.identifier stringByAppendingFormat:@".%@", UUID()];
+    }
+
+    // Check for duplicate name and auto-rename if needed
+    NSSet *existingNames = [self.capes valueForKeyPath:@"name"];
+    if ([existingNames containsObject:lib.name]) {
+        NSString *baseName = lib.name;
+        NSInteger counter = 1;
+        NSString *newName = [NSString stringWithFormat:@"%@ (%ld)", baseName, (long)counter];
+
+        while ([existingNames containsObject:newName]) {
+            counter++;
+            newName = [NSString stringWithFormat:@"%@ (%ld)", baseName, (long)counter];
+        }
+
+        lib.name = newName;
     }
 
     lib.fileURL = [self URLForCape:lib];
