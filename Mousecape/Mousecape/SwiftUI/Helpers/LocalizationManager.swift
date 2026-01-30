@@ -238,7 +238,12 @@ private let localizationStrings: [AppLanguage: [String: String]] = [
         // GIF Import Warnings
         "gif_decode_warning_title": "GIF Import Warning",
         "gif_decode_warning_message": "%d out of %d frames failed to decode. The animation may not play correctly.",
-        "ok": "OK"
+        "ok": "OK",
+
+        // Operation Result Messages
+        "has been exported.": "has been exported.",
+        "has been imported.": "has been imported.",
+        "Failed to export cape.": "Failed to export cape."
     ],
 
     .chinese: [
@@ -435,7 +440,12 @@ private let localizationStrings: [AppLanguage: [String: String]] = [
         // GIF Import Warnings
         "gif_decode_warning_title": "GIF 导入警告",
         "gif_decode_warning_message": "%d 帧中有 %d 帧解码失败。动画可能无法正常播放。",
-        "ok": "确定"
+        "ok": "确定",
+
+        // Operation Result Messages
+        "has been exported.": "已成功导出。",
+        "has been imported.": "已成功导入。",
+        "Failed to export cape.": "导出 Cape 失败。"
     ]
 ]
 

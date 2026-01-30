@@ -86,6 +86,11 @@ final class AppState: @unchecked Sendable {
     var importResultMessage: String = ""
     var importResultIsSuccess: Bool = true
 
+    /// Operation result state (for apply, import cape, export cape)
+    var showOperationResult: Bool = false
+    var operationResultMessage: String = ""
+    var operationResultIsSuccess: Bool = true
+
     /// Error state
     var lastError: Error?
     var showError: Bool = false
@@ -257,6 +262,9 @@ final class AppState: @unchecked Sendable {
     private func importCapeFromURL(_ url: URL) {
         guard let libraryController = libraryController else { return }
 
+        // Get cape name from filename (without extension)
+        let capeName = url.deletingPathExtension().lastPathComponent
+
         let error = libraryController.importCape(at: url)
         if let error = error as NSError? {
             // Import failed due to validation
@@ -268,6 +276,11 @@ final class AppState: @unchecked Sendable {
         } else {
             // Import succeeded, reload the cape list
             loadCapes()
+
+            // Show success message with cape name
+            operationResultMessage = "\"\(capeName)\" \(LocalizationManager.shared.localized("has been imported."))"
+            operationResultIsSuccess = true
+            showOperationResult = true
         }
     }
 
@@ -536,7 +549,15 @@ final class AppState: @unchecked Sendable {
     }
 
     private func exportCapeToURL(_ cape: CursorLibrary, url: URL) {
-        cape.underlyingLibrary.write(toFile: url.path, atomically: true)
+        let success = cape.underlyingLibrary.write(toFile: url.path, atomically: true)
+        if success {
+            operationResultMessage = "\"\(cape.name)\" \(LocalizationManager.shared.localized("has been exported."))"
+            operationResultIsSuccess = true
+        } else {
+            operationResultMessage = LocalizationManager.shared.localized("Failed to export cape.")
+            operationResultIsSuccess = false
+        }
+        showOperationResult = true
     }
 
     /// Show cape in Finder

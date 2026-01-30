@@ -39,6 +39,19 @@ struct MainView: View {
         } message: {
             Text(appState.importResultMessage)
         }
+        .alert(
+            appState.operationResultIsSuccess ? localization.localized("Success") : localization.localized("Error"),
+            isPresented: Binding(
+                get: { appState.showOperationResult },
+                set: { appState.showOperationResult = $0 }
+            )
+        ) {
+            Button(localization.localized("OK")) {
+                appState.showOperationResult = false
+            }
+        } message: {
+            Text(appState.operationResultMessage)
+        }
     }
 }
 
