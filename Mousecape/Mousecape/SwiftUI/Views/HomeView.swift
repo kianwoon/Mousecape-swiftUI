@@ -23,7 +23,7 @@ struct HomeView: View {
         // Flexible spacer pushes buttons to the right (macOS 26+ only)
         AdaptiveToolbarSpacer(.flexible)
 
-        // Group 1: New, Delete, Edit
+        // Group 1: New, Delete
         ToolbarItemGroup {
             Menu {
                 Button(localization.localized("New Cape")) {
@@ -47,7 +47,12 @@ struct HomeView: View {
             }
             .help(localization.localized("Delete Cape"))
             .disabled(appState.selectedCape == nil)
+        }
 
+        AdaptiveToolbarSpacer(.fixed)
+
+        // Group 2: Edit, Apply
+        ToolbarItemGroup {
             Button(action: {
                 if let cape = appState.selectedCape {
                     appState.editCape(cape)
@@ -71,7 +76,7 @@ struct HomeView: View {
 
         AdaptiveToolbarSpacer(.fixed)
 
-        // Group 2: Import, Export
+        // Group 3: Import, Export
         ToolbarItemGroup {
             Button(action: { appState.importCape() }) {
                 Image(systemName: "square.and.arrow.down")
