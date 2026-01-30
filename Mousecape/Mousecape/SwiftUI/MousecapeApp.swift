@@ -144,7 +144,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
 
                 // Re-register
-                try await service.register()
+                try service.register()
                 helperLog("Re-registered Helper")
 
                 // Verify
@@ -256,7 +256,9 @@ class WindowDelegate: NSObject, NSWindowDelegate {
     func startObservingDirtyState() {
         // Use a timer to periodically check dirty state
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            self?.updateDocumentEdited()
+            Task { @MainActor in
+                self?.updateDocumentEdited()
+            }
         }
     }
 

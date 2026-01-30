@@ -122,9 +122,12 @@ struct AnimatingCursorView: View {
             return
         }
 
+        let frameCount = cursor.frameCount
         animationTimer?.invalidate()
-        animationTimer = Timer.scheduledTimer(withTimeInterval: cursor.frameDuration, repeats: true) { _ in
-            currentFrame = (currentFrame + 1) % cursor.frameCount
+        animationTimer = Timer.scheduledTimer(withTimeInterval: cursor.frameDuration, repeats: true) { [self] _ in
+            Task { @MainActor in
+                currentFrame = (currentFrame + 1) % frameCount
+            }
         }
     }
 
