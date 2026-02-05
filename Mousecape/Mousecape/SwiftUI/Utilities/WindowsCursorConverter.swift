@@ -273,9 +273,14 @@ final class WindowsCursorConverter: @unchecked Sendable {
         context.clear(CGRect(x: 0, y: 0, width: frameWidth, height: newSheetHeight))
 
         // Draw selected frames
+        // Note: CGImage.cropping uses top-left origin (Y=0 at top)
+        // CGContext.draw uses bottom-left origin (Y=0 at bottom)
+        // Frame 0 is at the TOP of the sprite sheet
         for (destIndex, sourceIndex) in frameIndices.enumerated() {
+            // Source: CGImage uses top-left origin, frame 0 is at Y=0
             let srcY = sourceIndex * frameHeight
-            let dstY = destIndex * frameHeight
+            // Destination: CGContext uses bottom-left origin, frame 0 should be at top (highest Y)
+            let dstY = newSheetHeight - (destIndex + 1) * frameHeight
 
             if let croppedFrame = spriteSheet.cropping(to: CGRect(x: 0, y: srcY, width: frameWidth, height: frameHeight)) {
                 context.draw(croppedFrame, in: CGRect(x: 0, y: dstY, width: frameWidth, height: frameHeight))

@@ -1134,13 +1134,18 @@ final class AppState: @unchecked Sendable {
         sourceImage.addRepresentation(original)
 
         // Draw each frame
+        // Note: NSImage uses bottom-left origin coordinate system
+        // Frame 0 is at the TOP of the sprite sheet (highest Y in bottom-left coords)
+        let totalSourceHeight = CGFloat(original.pixelsHigh)
+        let totalDestHeight = CGFloat(targetSize * frameCount)
+
         for frameIndex in 0..<frameCount {
-            // Source rect for this frame in the original sprite sheet
-            let srcY = CGFloat(frameIndex) * originalHeight
+            // Source rect: frame 0 is at top, so we read from (totalHeight - frameHeight) down
+            let srcY = totalSourceHeight - CGFloat(frameIndex + 1) * originalHeight
             let srcRect = NSRect(x: 0, y: srcY, width: originalWidth, height: originalHeight)
 
-            // Destination rect for this frame in the scaled sprite sheet
-            let dstY = CGFloat(frameIndex) * targetSizeF + offsetY
+            // Destination rect: frame 0 should be at top of new sprite sheet
+            let dstY = totalDestHeight - CGFloat(frameIndex + 1) * targetSizeF + offsetY
             let dstRect = NSRect(x: offsetX, y: dstY, width: scaledWidth, height: scaledHeight)
 
             sourceImage.draw(in: dstRect, from: srcRect, operation: .copy, fraction: 1.0)

@@ -1218,11 +1218,14 @@ struct CursorPreviewDropZone: View {
         NSRect(x: 0, y: 0, width: frameWidth, height: sheetHeight).fill()
 
         // Draw each frame
+        // Note: NSGraphicsContext uses bottom-left origin coordinate system
+        // Frame 0 should be at the TOP of the sprite sheet (highest Y in bottom-left coords)
+        // This matches the format expected by AnimatingCursorView.getFrameImage
         for (index, frame) in frames.enumerated() {
             let sourceImage = NSImage(size: NSSize(width: frame.pixelsWide, height: frame.pixelsHigh))
             sourceImage.addRepresentation(frame)
 
-            let yOffset = CGFloat(index * frameHeight)
+            let yOffset = CGFloat(sheetHeight - (index + 1) * frameHeight)
             let destRect = NSRect(x: 0, y: yOffset, width: CGFloat(frameWidth), height: CGFloat(frameHeight))
             sourceImage.draw(in: destRect, from: .zero, operation: .copy, fraction: 1.0)
         }
@@ -1275,10 +1278,17 @@ struct CursorPreviewDropZone: View {
         sourceImage.addRepresentation(original)
 
         for frameIndex in 0..<frameCount {
-            let srcY = CGFloat(frameIndex) * originalHeight
+            // Note: NSImage uses bottom-left origin coordinate system
+            // Frame 0 is at the TOP of the sprite sheet (highest Y in bottom-left coords)
+            let totalSourceHeight = CGFloat(original.pixelsHigh)
+            let totalDestHeight = CGFloat(targetSize * frameCount)
+
+            // Source rect: frame 0 is at top, so we read from (totalHeight - frameHeight) down
+            let srcY = totalSourceHeight - CGFloat(frameIndex + 1) * originalHeight
             let srcRect = NSRect(x: 0, y: srcY, width: originalWidth, height: originalHeight)
 
-            let dstY = CGFloat(frameIndex) * targetSizeF + offsetY
+            // Destination rect: frame 0 should be at top of new sprite sheet
+            let dstY = totalDestHeight - CGFloat(frameIndex + 1) * targetSizeF + offsetY
             let dstRect = NSRect(x: offsetX, y: dstY, width: scaledWidth, height: scaledHeight)
 
             sourceImage.draw(in: dstRect, from: srcRect, operation: .copy, fraction: 1.0)
@@ -1510,13 +1520,18 @@ struct CursorPreviewDropZone: View {
         sourceImage.addRepresentation(original)
 
         // Draw each frame
+        // Note: NSImage uses bottom-left origin coordinate system
+        // Frame 0 is at the TOP of the sprite sheet (highest Y in bottom-left coords)
+        let totalSourceHeight = CGFloat(original.pixelsHigh)
+        let totalDestHeight = CGFloat(targetSize * frameCount)
+
         for frameIndex in 0..<frameCount {
-            // Source rect for this frame in the original sprite sheet
-            let srcY = CGFloat(frameIndex) * originalHeight
+            // Source rect: frame 0 is at top, so we read from (totalHeight - frameHeight) down
+            let srcY = totalSourceHeight - CGFloat(frameIndex + 1) * originalHeight
             let srcRect = NSRect(x: 0, y: srcY, width: originalWidth, height: originalHeight)
 
-            // Destination rect for this frame in the scaled sprite sheet
-            let dstY = CGFloat(frameIndex) * targetSizeF + offsetY
+            // Destination rect: frame 0 should be at top of new sprite sheet
+            let dstY = totalDestHeight - CGFloat(frameIndex + 1) * targetSizeF + offsetY
             let dstRect = NSRect(x: offsetX, y: dstY, width: scaledWidth, height: scaledHeight)
 
             sourceImage.draw(in: dstRect, from: srcRect, operation: .copy, fraction: 1.0)
