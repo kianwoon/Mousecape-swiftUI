@@ -45,7 +45,7 @@ final class CursorLibrary: Identifiable, Hashable {
     }
 
     var version: Double {
-        get { objcLibrary.version?.doubleValue ?? 1.0 }
+        get { objcLibrary.version.doubleValue }
         set { objcLibrary.version = NSNumber(value: newValue) }
     }
 
@@ -84,7 +84,7 @@ final class CursorLibrary: Identifiable, Hashable {
     }
 
     var cursorCount: Int {
-        objcLibrary.cursors?.count ?? 0
+        objcLibrary.cursors.count
     }
 
     /// Get the first cursor (preferring Arrow) for preview
@@ -138,7 +138,7 @@ final class CursorLibrary: Identifiable, Hashable {
 
     /// Create a new empty library
     convenience init(name: String, author: String = "") {
-        let library = MCCursorLibrary(cursors: Set())!
+        let library = MCCursorLibrary(cursors: Set())
         library.name = name
         library.author = author
         // Generate identifier in format: local.Author.Name

@@ -356,7 +356,7 @@ const char MCCursorPropertiesContext;
 /// Returns nil if valid, or an NSError describing validation failures
 /// Rules: frameCount must be <= 24, hotspot must be within cursor size bounds (0 <= hotspot < size)
 - (NSError *)validateCape {
-    const NSUInteger maxFrameCount = 24;
+    const NSUInteger maxFrameCount = MCMaxFrameCount;
     NSMutableArray *frameCountErrors = [NSMutableArray array];
     NSMutableArray *hotspotErrors = [NSMutableArray array];
 

@@ -206,7 +206,7 @@ final class WindowsCursorConverter: @unchecked Sendable {
     /// Convert a parse result to WindowsCursorResult
     /// Downsamples to max 24 frames if needed to comply with system limits
     private func convertParseResult(_ parseResult: WindowsCursorParseResult, filename: String) throws -> WindowsCursorResult {
-        let maxFrameCount = 24
+        let maxFrameCount = CursorImageScaler.maxFrameCount
 
         // Validate single frame size to prevent importing oversized frames
         // Note: Sprite sheet size validation is not needed since images are scaled to 64x64 per frame later
@@ -266,7 +266,7 @@ final class WindowsCursorConverter: @unchecked Sendable {
     ///   - filename: Filename for error reporting
     /// - Throws: WindowsCursorError.imageTooLarge if frame exceeds maximum dimensions
     private func validateSingleFrameSize(width: Int, height: Int, filename: String) throws {
-        let maxFrameSize = 512  // Maximum individual frame size
+        let maxFrameSize = CursorImageScaler.maxImportSize  // Maximum individual frame size
         if width > maxFrameSize || height > maxFrameSize {
             debugLog("Frame '\(filename)' is too large: \(width)x\(height), max is \(maxFrameSize)x\(maxFrameSize)")
             throw WindowsCursorError.imageTooLarge(width: width, height: height)

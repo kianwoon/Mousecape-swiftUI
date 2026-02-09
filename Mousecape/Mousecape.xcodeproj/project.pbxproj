@@ -28,10 +28,15 @@
 		DE525A852EFE93C200A315A3 /* DirectoryLocations.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE525A7D2EFE93C200A315A3 /* DirectoryLocations.swift */; };
 		DE654C422F0A6DB40025E5A0 /* WindowsINFParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE654C412F0A6DB40025E5A0 /* WindowsINFParser.swift */; };
 		DE6B14B42F0512EE00742257 /* WindowsCursorParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE6B14B32F0512EE00742257 /* WindowsCursorParser.swift */; };
+		DEAB0D642F39ADB000DB9EB0 /* CursorImageScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAB0D632F39ADB000DB9EB0 /* CursorImageScaler.swift */; };
 		DEBC96002F16577D004E6C07 /* MCLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = DEBC95FF2F16577D004E6C07 /* MCLogger.m */; };
 		DEBC96012F16577D004E6C07 /* MCLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = DEBC95FF2F16577D004E6C07 /* MCLogger.m */; };
 		DEBC96032F1657A4004E6C07 /* DebugLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEBC96022F1657A4004E6C07 /* DebugLogger.swift */; };
 		DEBC96042F165800004E6C07 /* MCLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = DEBC95FF2F16577D004E6C07 /* MCLogger.m */; };
+		DED4B7D62F39BD5800CAFCCE /* CapeInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DED4B7D42F39BD5800CAFCCE /* CapeInfoView.swift */; };
+		DED4B7D72F39BD5800CAFCCE /* HelperToolSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DED4B7D52F39BD5800CAFCCE /* HelperToolSettingsView.swift */; };
+		DED4B7D82F39BD5800CAFCCE /* AddCursorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DED4B7D32F39BD5800CAFCCE /* AddCursorSheet.swift */; };
+		DED4B7DC2F39C14F00CAFCCE /* AppState+WindowsImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DED4B7DB2F39C14F00CAFCCE /* AppState+WindowsImport.swift */; };
 		FA000001UTITYPES00000001 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA000001UTITYPES00000000 /* UniformTypeIdentifiers.framework */; };
 		FA1DC01919527A73009E879C /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA359844189DBA3800288163 /* SystemConfiguration.framework */; };
 		FA1DC01A19527A79009E879C /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA254779189D85890038E1D9 /* ApplicationServices.framework */; };
@@ -146,9 +151,14 @@
 		DE525A802EFE93C200A315A3 /* WindowsCursorMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowsCursorMapping.swift; sourceTree = "<group>"; };
 		DE654C412F0A6DB40025E5A0 /* WindowsINFParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowsINFParser.swift; sourceTree = "<group>"; };
 		DE6B14B32F0512EE00742257 /* WindowsCursorParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowsCursorParser.swift; sourceTree = "<group>"; };
+		DEAB0D632F39ADB000DB9EB0 /* CursorImageScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorImageScaler.swift; sourceTree = "<group>"; };
 		DEBC95FE2F16577D004E6C07 /* MCLogger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MCLogger.h; sourceTree = "<group>"; };
 		DEBC95FF2F16577D004E6C07 /* MCLogger.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MCLogger.m; sourceTree = "<group>"; };
 		DEBC96022F1657A4004E6C07 /* DebugLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLogger.swift; sourceTree = "<group>"; };
+		DED4B7D32F39BD5800CAFCCE /* AddCursorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCursorSheet.swift; sourceTree = "<group>"; };
+		DED4B7D42F39BD5800CAFCCE /* CapeInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapeInfoView.swift; sourceTree = "<group>"; };
+		DED4B7D52F39BD5800CAFCCE /* HelperToolSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperToolSettingsView.swift; sourceTree = "<group>"; };
+		DED4B7DB2F39C14F00CAFCCE /* AppState+WindowsImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+WindowsImport.swift"; sourceTree = "<group>"; };
 		FA000001UTITYPES00000000 /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
 		FA1DC01719527A56009E879C /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		FA254779189D85890038E1D9 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
@@ -271,6 +281,7 @@
 		DE3661EF2EFAAAB600D94521 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				DED4B7DB2F39C14F00CAFCCE /* AppState+WindowsImport.swift */,
 				DE3661EB2EFAAAB600D94521 /* AppEnums.swift */,
 				DE3661EC2EFAAAB600D94521 /* AppState.swift */,
 				DE3661ED2EFAAAB600D94521 /* Cursor.swift */,
@@ -282,6 +293,9 @@
 		DE3661F82EFAAAB600D94521 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				DED4B7D32F39BD5800CAFCCE /* AddCursorSheet.swift */,
+				DED4B7D42F39BD5800CAFCCE /* CapeInfoView.swift */,
+				DED4B7D52F39BD5800CAFCCE /* HelperToolSettingsView.swift */,
 				DE3661F12EFAAAB600D94521 /* CapeContextMenu.swift */,
 				DE3661F22EFAAAB600D94521 /* CapePreviewPanel.swift */,
 				DE3661F32EFAAAB600D94521 /* EditOverlayView.swift */,
@@ -308,6 +322,7 @@
 		DE525A812EFE93C200A315A3 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				DEAB0D632F39ADB000DB9EB0 /* CursorImageScaler.swift */,
 				DEBC96022F1657A4004E6C07 /* DebugLogger.swift */,
 				DE654C412F0A6DB40025E5A0 /* WindowsINFParser.swift */,
 				DE6B14B32F0512EE00742257 /* WindowsCursorParser.swift */,
@@ -640,6 +655,10 @@
 				FAEE653318A047E8003AA182 /* MCCursorLibrary.m in Sources */,
 				FAEE652F18A047E8003AA182 /* MCLibraryController.m in Sources */,
 				FAAEF94E189EFC9300145DF8 /* create.m in Sources */,
+				DEAB0D642F39ADB000DB9EB0 /* CursorImageScaler.swift in Sources */,
+				DED4B7D62F39BD5800CAFCCE /* CapeInfoView.swift in Sources */,
+				DED4B7D72F39BD5800CAFCCE /* HelperToolSettingsView.swift in Sources */,
+				DED4B7D82F39BD5800CAFCCE /* AddCursorSheet.swift in Sources */,
 				FAAEF94F189EFC9600145DF8 /* backup.m in Sources */,
 				FAAEF951189F0CC300145DF8 /* restore.m in Sources */,
 				DE654C422F0A6DB40025E5A0 /* WindowsINFParser.swift in Sources */,
@@ -658,6 +677,7 @@
 				DEBC96032F1657A4004E6C07 /* DebugLogger.swift in Sources */,
 				DE3662012EFAAAB600D94521 /* MousecapeApp.swift in Sources */,
 				DE3662022EFAAAB600D94521 /* CapeContextMenu.swift in Sources */,
+				DED4B7DC2F39C14F00CAFCCE /* AppState+WindowsImport.swift in Sources */,
 				DE3662032EFAAAB600D94521 /* GlassEffectContainer.swift in Sources */,
 				DE3662042EFAAAB600D94521 /* MousecapeCommands.swift in Sources */,
 				DE3662052EFAAAB600D94521 /* SettingsView.swift in Sources */,

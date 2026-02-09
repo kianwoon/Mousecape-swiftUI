@@ -83,6 +83,7 @@ SwiftUI/
 ├── MousecapeApp.swift（入口）
 ├── Models/
 │   ├── AppState.swift（@Observable 状态管理）
+│   ├── AppState+WindowsImport.swift（Windows 光标文件夹导入）
 │   ├── AppEnums.swift
 │   ├── Cursor.swift（MCCursor 包装器）
 │   └── CursorLibrary.swift（MCCursorLibrary 包装器）
@@ -91,9 +92,13 @@ SwiftUI/
 │   ├── HomeView.swift（cape 列表 + 预览）
 │   ├── SettingsView.swift
 │   ├── EditOverlayView.swift（编辑时的叠层）
+│   ├── CapeInfoView.swift（Cape 元数据编辑器）
+│   ├── AddCursorSheet.swift（添加光标类型弹窗）
+│   ├── HelperToolSettingsView.swift（辅助工具安装管理）
 │   ├── CapePreviewPanel.swift
 │   └── MousecapeCommands.swift（菜单命令）
 ├── Utilities/
+│   ├── CursorImageScaler.swift（共享图像缩放常量和工具）
 │   ├── LocalizationManager.swift（多语言支持）
 │   ├── WindowsCursorParser.swift
 │   ├── WindowsCursorConverter.swift
@@ -103,6 +108,12 @@ SwiftUI/
     ├── AnimatingCursorView.swift
     └── GlassEffectContainer.swift
 ```
+
+**共享常量（CursorImageScaler.swift）：**
+- `CursorImageScaler.standardCursorSize` = 64（标准光标像素尺寸）
+- `CursorImageScaler.maxFrameCount` = 24（最大动画帧数）
+- `CursorImageScaler.maxImportSize` = 512（最大导入图像尺寸）
+- ObjC 侧对应：`MCMaxFrameCount`、`MCMaxImportSize`（定义在 MCDefs.h/m）
 
 状态管理通过 `@Observable @MainActor AppState` 单例实现，带有手动撤销/重做栈。
 

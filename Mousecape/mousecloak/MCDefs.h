@@ -53,6 +53,10 @@ typedef NS_ENUM(NSInteger, MCErrorCode) {
 // Hotspot validation constants
 extern const CGFloat   MCMaxHotspotValue;  // Maximum hotspot coordinate value (31.99)
 
+// Cursor import limits
+extern const NSUInteger MCMaxFrameCount;   // Maximum animation frame count (24)
+extern const NSInteger  MCMaxImportSize;   // Maximum import image size in pixels (512)
+
 extern const CGFloat   MCCursorCreatorVersion;
 extern const CGFloat   MCCursorParserVersion;
 extern const NSString *MCCursorDictionaryMinimumVersionKey;

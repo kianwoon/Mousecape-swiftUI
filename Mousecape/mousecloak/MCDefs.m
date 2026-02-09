@@ -27,6 +27,10 @@ NSString *MCErrorDomain = @"com.alexzielenski.mousecape.error";
 // Hotspot validation constant
 const CGFloat   MCMaxHotspotValue                    = 31.99;
 
+// Cursor import limits
+const NSUInteger MCMaxFrameCount                     = 24;
+const NSInteger  MCMaxImportSize                     = 512;
+
 const CGFloat   MCCursorCreatorVersion               = 2.0;
 const CGFloat   MCCursorParserVersion                = 2.0;
 

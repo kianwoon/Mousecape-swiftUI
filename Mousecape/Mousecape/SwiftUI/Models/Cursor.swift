@@ -17,13 +17,14 @@ final class Cursor: Identifiable, Hashable {
     // MARK: - Properties (bridged from ObjC)
 
     var identifier: String {
-        get { objcCursor.identifier ?? "" }
+        get { objcCursor.identifier }
         set { objcCursor.identifier = newValue }
     }
 
     var name: String {
         // First try ObjC cursor name
-        if let objcName = objcCursor.name, !objcName.isEmpty {
+        let objcName = objcCursor.name
+        if !objcName.isEmpty {
             return objcName
         }
         // Then try to extract from identifier

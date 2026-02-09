@@ -151,285 +151,6 @@ struct EditOverlayView: View {
     }
 }
 
-// MARK: - Cape Info View (Metadata Editor)
-
-struct CapeInfoView: View {
-    @Bindable var cape: CursorLibrary
-    @Environment(AppState.self) private var appState
-    @Environment(LocalizationManager.self) private var localization
-
-    /// Current filename from fileURL
-    private var currentFilename: String {
-        cape.fileURL?.lastPathComponent ?? "\(cape.identifier).cape"
-    }
-
-    /// Check if name is valid (not empty)
-    private var isNameValid: Bool {
-        !cape.name.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
-    /// Check if author is valid (not empty)
-    private var isAuthorValid: Bool {
-        !cape.author.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
-    /// Check if version is valid (> 0)
-    private var isVersionValid: Bool {
-        cape.version > 0
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                // Cape metadata form
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(localization.localized("Cape Information"))
-                        .font(.headline)
-
-                    LabeledContent(localization.localized("Name")) {
-                        TextField(localization.localized("Name"), text: Binding(
-                            get: { cape.name },
-                            set: { newValue in
-                                // Filter to only allow valid filename characters
-                                let filtered = AppState.filterNameOrAuthor(newValue)
-                                let oldValue = cape.name
-                                guard filtered != oldValue else { return }
-                                cape.name = filtered
-                                appState.registerUndo(
-                                    undo: { [weak cape] in cape?.name = oldValue },
-                                    redo: { [weak cape] in cape?.name = filtered }
-                                )
-                            }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 300)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 5)
-                                .stroke(isNameValid ? Color.clear : Color.red, lineWidth: 2)
-                        )
-                    }
-
-                    LabeledContent(localization.localized("Author")) {
-                        TextField(localization.localized("Author"), text: Binding(
-                            get: { cape.author },
-                            set: { newValue in
-                                // Filter to only allow valid filename characters
-                                let filtered = AppState.filterNameOrAuthor(newValue)
-                                let oldValue = cape.author
-                                guard filtered != oldValue else { return }
-                                cape.author = filtered
-                                appState.registerUndo(
-                                    undo: { [weak cape] in cape?.author = oldValue },
-                                    redo: { [weak cape] in cape?.author = filtered }
-                                )
-                            }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 300)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 5)
-                                .stroke(isAuthorValid ? Color.clear : Color.red, lineWidth: 2)
-                        )
-                    }
-
-                    LabeledContent(localization.localized("Version")) {
-                        TextField(localization.localized("Version"), value: Binding(
-                            get: { cape.version },
-                            set: { newValue in
-                                let oldValue = cape.version
-                                // Ensure version is at least 0.1
-                                let validValue = max(0.1, newValue)
-                                guard validValue != oldValue else { return }
-                                cape.version = validValue
-                                appState.registerUndo(
-                                    undo: { [weak cape] in cape?.version = oldValue },
-                                    redo: { [weak cape] in cape?.version = validValue }
-                                )
-                            }
-                        ), format: .number)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 5)
-                                .stroke(isVersionValid ? Color.clear : Color.red, lineWidth: 2)
-                        )
-                    }
-
-                    Divider()
-
-                    LabeledContent(localization.localized("Cursors")) {
-                        Text("\(cape.cursorCount)")
-                            .foregroundStyle(.secondary)
-                    }
-
-                    LabeledContent(localization.localized("File")) {
-                        // Show current filename (updates after save)
-                        Text(currentFilename)
-                            .foregroundStyle(.secondary)
-                            .font(.system(.caption, design: .monospaced))
-                            .id(appState.capeInfoRefreshTrigger)  // Force refresh when triggered
-                    }
-                }
-                .padding()
-                .adaptiveGlass(in: RoundedRectangle(cornerRadius: 12))
-
-                // Cursor summary
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("\(localization.localized("Cursors")) (\(cape.cursorCount))")
-                        .font(.headline)
-
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 60))], spacing: 8) {
-                        ForEach(cape.cursors) { cursor in
-                            VStack(spacing: 4) {
-                                if let image = cursor.previewImage(size: 48) {
-                                    Image(nsImage: image)
-                                        .resizable()
-                                        .frame(width: 48, height: 48)
-                                } else {
-                                    Image(systemName: cursor.cursorType?.previewSymbol ?? "cursorarrow")
-                                        .font(.title)
-                                        .frame(width: 48, height: 48)
-                                }
-                                Text(cursor.name)
-                                    .font(.caption2)
-                                    .lineLimit(1)
-                            }
-                        }
-                    }
-                }
-                .padding()
-                .adaptiveGlass(in: RoundedRectangle(cornerRadius: 12))
-            }
-            .padding()
-        }
-    }
-}
-
-// MARK: - Add Cursor Sheet
-
-struct AddCursorSheet: View {
-    let cape: CursorLibrary
-    @Environment(\.dismiss) private var dismiss
-    @Environment(AppState.self) private var appState
-    @Environment(LocalizationManager.self) private var localization
-    @State private var selectedType: CursorType?
-
-    // Filter out cursor types that already exist in the cape
-    private var availableTypes: [CursorType] {
-        let existingIdentifiers = Set(cape.cursors.map { $0.identifier })
-        return CursorType.allCases.filter { !existingIdentifiers.contains($0.rawValue) }
-    }
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Text(localization.localized("Add Cursor"))
-                .font(.headline)
-
-            cursorTypeList
-
-            buttonBar
-        }
-        .padding()
-        .frame(width: 350, height: 420)
-        .onAppear {
-            selectedType = availableTypes.first
-        }
-    }
-
-    @ViewBuilder
-    private var cursorTypeList: some View {
-        if availableTypes.isEmpty {
-            ContentUnavailableView(
-                localization.localized("All Cursor Types Added"),
-                systemImage: "checkmark.circle",
-                description: Text(localization.localized("This cape already contains all standard cursor types."))
-            )
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 2) {
-                    ForEach(availableTypes) { type in
-                        CursorTypeRow(
-                            type: type,
-                            isSelected: selectedType == type,
-                            onSelect: { selectedType = type }
-                        )
-                    }
-                }
-                .padding(8)
-            }
-            .frame(height: 300)
-            .adaptiveGlassClear(in: RoundedRectangle(cornerRadius: 12))
-        }
-    }
-
-    private var buttonBar: some View {
-        HStack {
-            Button(localization.localized("Cancel")) {
-                dismiss()
-            }
-            .keyboardShortcut(.cancelAction)
-
-            Spacer()
-
-            Button(localization.localized("Add")) {
-                addSelectedCursor()
-            }
-            .keyboardShortcut(.defaultAction)
-            .disabled(selectedType == nil || availableTypes.isEmpty)
-        }
-    }
-
-    private func addSelectedCursor() {
-        guard let type = selectedType else { return }
-
-        // Create and add cursor directly via AppState
-        let newCursor = Cursor(identifier: type.rawValue)
-        cape.addCursor(newCursor)
-        appState.markAsChanged()
-        appState.cursorListRefreshTrigger += 1
-        appState.editingSelectedCursor = newCursor
-
-        // Dismiss sheet
-        dismiss()
-    }
-}
-
-// MARK: - Cursor Type Row
-
-private struct CursorTypeRow: View {
-    let type: CursorType
-    let isSelected: Bool
-    let onSelect: () -> Void
-
-    var body: some View {
-        HStack {
-            Image(systemName: type.previewSymbol)
-                .frame(width: 24)
-                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
-            Text(type.displayName)
-                .foregroundStyle(isSelected ? .primary : .secondary)
-            Spacer()
-            if isSelected {
-                Image(systemName: "checkmark")
-                    .foregroundStyle(Color.accentColor)
-                    .fontWeight(.semibold)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .contentShape(Rectangle())
-        .background {
-            if isSelected {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.accentColor.opacity(0.15))
-            }
-        }
-        .onTapGesture {
-            onSelect()
-        }
-    }
-}
-
 // MARK: - Cursor List View (for Edit)
 
 struct CursorListView: View {
@@ -960,9 +681,6 @@ struct CursorPreviewDropZone: View {
         }
     }
 
-    /// Standard cursor size for 2x HiDPI (64x64 pixels = 32x32 points)
-    private let standardCursorSize: Int = 64
-
     private func loadImage(from url: URL) -> Bool {
         guard url.startAccessingSecurityScopedResource() else {
             debugLog("Failed to access security scoped resource: \(url)")
@@ -987,7 +705,7 @@ struct CursorPreviewDropZone: View {
         }
 
         // Get original image dimensions
-        guard let originalBitmap = getOriginalBitmapRep(from: image) else {
+        guard let originalBitmap = CursorImageScaler.getOriginalBitmapRep(from: image) else {
             debugLog("Failed to get bitmap rep from image")
             return false
         }
@@ -1004,7 +722,7 @@ struct CursorPreviewDropZone: View {
         }
 
         // Scale image to standard size (64x64) with aspect fit and center
-        guard let scaledBitmap = scaleImageToStandardSize(originalBitmap) else {
+        guard let scaledBitmap = CursorImageScaler.scaleImageToStandardSize(originalBitmap) else {
             debugLog("Failed to scale image")
             return false
         }
@@ -1020,7 +738,7 @@ struct CursorPreviewDropZone: View {
         localRefreshTrigger += 1
         appState.cursorListRefreshTrigger += 1
 
-        debugLog("Image imported successfully: \(originalWidth)x\(originalHeight) → \(standardCursorSize)x\(standardCursorSize)")
+        debugLog("Image imported successfully: \(originalWidth)x\(originalHeight) → \(CursorImageScaler.standardCursorSize)x\(CursorImageScaler.standardCursorSize)")
         return true
     }
 
@@ -1051,7 +769,7 @@ struct CursorPreviewDropZone: View {
                 return false
             }
             let bitmap = NSBitmapImageRep(cgImage: cgImage)
-            guard let scaledBitmap = scaleImageToStandardSize(bitmap) else {
+            guard let scaledBitmap = CursorImageScaler.scaleImageToStandardSize(bitmap) else {
                 debugLog("Failed to scale GIF image")
                 return false
             }
@@ -1131,10 +849,10 @@ struct CursorPreviewDropZone: View {
         }
 
         // Downsample frames to maximum 24 if needed (system limit)
-        let maxFrameCount = 24
+        let maxFrameCount = CursorImageScaler.maxFrameCount
         if frames.count > maxFrameCount {
             let originalFrameCount = frames.count
-            let downsampledFrames = downsampleFrames(frames, targetCount: maxFrameCount)
+            let downsampledFrames = CursorImageScaler.downsampleFrames(frames, targetCount: maxFrameCount)
             debugLog("GIF downsampled: \(originalFrameCount) → \(downsampledFrames.count) frames")
             frames = downsampledFrames
             // totalDuration already represents the correct total animation time;
@@ -1145,13 +863,13 @@ struct CursorPreviewDropZone: View {
         let avgFrameDuration = totalDuration / Double(frames.count)
 
         // Create a sprite sheet (all frames stacked vertically)
-        guard let spriteSheet = createSpriteSheet(from: frames, frameWidth: frameWidth, frameHeight: frameHeight) else {
+        guard let spriteSheet = CursorImageScaler.createSpriteSheet(from: frames, frameWidth: frameWidth, frameHeight: frameHeight) else {
             debugLog("Failed to create sprite sheet from GIF frames")
             return false
         }
 
         // Scale the sprite sheet
-        guard let scaledSpriteSheet = scaleGIFSpriteSheet(spriteSheet, frameCount: frames.count, originalFrameWidth: frameWidth, originalFrameHeight: frameHeight) else {
+        guard let scaledSpriteSheet = CursorImageScaler.scaleSpriteSheet(spriteSheet, frameCount: frames.count, originalFrameWidth: frameWidth, originalFrameHeight: frameHeight) else {
             debugLog("Failed to scale GIF sprite sheet")
             return false
         }
@@ -1167,178 +885,6 @@ struct CursorPreviewDropZone: View {
 
         debugLog("Animated GIF imported: \(frameWidth)x\(frameHeight), \(frames.count) frames, \(String(format: "%.3f", avgFrameDuration))s/frame")
         return true
-    }
-
-    /// Downsample frames to target count using uniform sampling
-    /// This preserves animation timing by evenly distributing frames
-    private func downsampleFrames(_ frames: [NSBitmapImageRep], targetCount: Int) -> [NSBitmapImageRep] {
-        guard frames.count > targetCount else { return frames }
-
-        var result: [NSBitmapImageRep] = []
-        let step = Double(frames.count - 1) / Double(targetCount - 1)
-
-        for i in 0..<targetCount {
-            let sourceIndex = Int(round(Double(i) * step))
-            let clampedIndex = min(sourceIndex, frames.count - 1)
-            result.append(frames[clampedIndex])
-        }
-
-        return result
-    }
-
-    /// Create a vertical sprite sheet from individual frames
-    private func createSpriteSheet(from frames: [NSBitmapImageRep], frameWidth: Int, frameHeight: Int) -> NSBitmapImageRep? {
-        let sheetHeight = frameHeight * frames.count
-
-        guard let spriteSheet = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: frameWidth,
-            pixelsHigh: sheetHeight,
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: frameWidth * 4,
-            bitsPerPixel: 32
-        ) else {
-            return nil
-        }
-
-        NSGraphicsContext.saveGraphicsState()
-        guard let context = NSGraphicsContext(bitmapImageRep: spriteSheet) else {
-            NSGraphicsContext.restoreGraphicsState()
-            return nil
-        }
-        NSGraphicsContext.current = context
-
-        // Clear to transparent
-        NSColor.clear.setFill()
-        NSRect(x: 0, y: 0, width: frameWidth, height: sheetHeight).fill()
-
-        // Draw each frame
-        // Note: NSGraphicsContext uses bottom-left origin coordinate system
-        // Frame 0 should be at the TOP of the sprite sheet (highest Y in bottom-left coords)
-        // This matches the format expected by AnimatingCursorView.getFrameImage
-        for (index, frame) in frames.enumerated() {
-            let sourceImage = NSImage(size: NSSize(width: frame.pixelsWide, height: frame.pixelsHigh))
-            sourceImage.addRepresentation(frame)
-
-            let yOffset = CGFloat(sheetHeight - (index + 1) * frameHeight)
-            let destRect = NSRect(x: 0, y: yOffset, width: CGFloat(frameWidth), height: CGFloat(frameHeight))
-            sourceImage.draw(in: destRect, from: .zero, operation: .copy, fraction: 1.0)
-        }
-
-        NSGraphicsContext.restoreGraphicsState()
-        return spriteSheet
-    }
-
-    /// Scale a GIF sprite sheet to standard cursor size
-    /// Crops each frame individually before scaling to prevent interpolation bleed across frame boundaries.
-    private func scaleGIFSpriteSheet(_ original: NSBitmapImageRep, frameCount: Int, originalFrameWidth: Int, originalFrameHeight: Int) -> NSBitmapImageRep? {
-        let targetSize = standardCursorSize
-
-        guard let fullCGImage = original.cgImage else { return nil }
-
-        let originalWidth = CGFloat(originalFrameWidth)
-        let originalHeight = CGFloat(originalFrameHeight)
-        let targetSizeF = CGFloat(targetSize)
-
-        let scale = min(targetSizeF / originalWidth, targetSizeF / originalHeight)
-        let scaledWidth = originalWidth * scale
-        let scaledHeight = originalHeight * scale
-
-        let offsetX = (targetSizeF - scaledWidth) / 2
-        let offsetY = (targetSizeF - scaledHeight) / 2
-
-        let totalDestHeight = targetSize * frameCount
-
-        // Use CGContext directly (thread-safe, no NSGraphicsContext overhead)
-        guard let context = CGContext(
-            data: nil,
-            width: targetSize,
-            height: totalDestHeight,
-            bitsPerComponent: 8,
-            bytesPerRow: targetSize * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
-            return nil
-        }
-
-        context.interpolationQuality = .high
-
-        for frameIndex in 0..<frameCount {
-            // Crop frame from sprite sheet using CGImage (top-left origin, integer pixels)
-            let cropRect = CGRect(x: 0, y: frameIndex * originalFrameHeight, width: originalFrameWidth, height: originalFrameHeight)
-            guard let frameCGImage = fullCGImage.cropping(to: cropRect) else { continue }
-
-            // Destination rect: frame 0 should be at top of new sprite sheet (bottom-left coords)
-            let dstY = CGFloat(totalDestHeight - (frameIndex + 1) * targetSize) + offsetY
-            let dstRect = CGRect(x: offsetX, y: dstY, width: scaledWidth, height: scaledHeight)
-
-            context.draw(frameCGImage, in: dstRect)
-        }
-
-        guard let resultImage = context.makeImage() else { return nil }
-        return NSBitmapImageRep(cgImage: resultImage)
-    }
-
-    /// Get original bitmap representation from image
-    private func getOriginalBitmapRep(from image: NSImage) -> NSBitmapImageRep? {
-        // First try to get existing bitmap rep
-        for rep in image.representations {
-            if let bitmapRep = rep as? NSBitmapImageRep {
-                return bitmapRep
-            }
-        }
-
-        // Create new bitmap by drawing the image
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return nil
-        }
-
-        return NSBitmapImageRep(cgImage: cgImage)
-    }
-
-    /// Scale image to standard 64x64 size with aspect fit and transparent padding
-    private func scaleImageToStandardSize(_ original: NSBitmapImageRep) -> NSBitmapImageRep? {
-        let targetSize = standardCursorSize
-
-        guard let sourceCGImage = original.cgImage else { return nil }
-
-        // Calculate aspect-fit scaling
-        let originalWidth = CGFloat(original.pixelsWide)
-        let originalHeight = CGFloat(original.pixelsHigh)
-        let targetSizeF = CGFloat(targetSize)
-
-        let scale = min(targetSizeF / originalWidth, targetSizeF / originalHeight)
-        let scaledWidth = originalWidth * scale
-        let scaledHeight = originalHeight * scale
-
-        // Center the image
-        let offsetX = (targetSizeF - scaledWidth) / 2
-        let offsetY = (targetSizeF - scaledHeight) / 2
-
-        // Use CGContext directly (thread-safe, no NSGraphicsContext overhead)
-        guard let context = CGContext(
-            data: nil,
-            width: targetSize,
-            height: targetSize,
-            bitsPerComponent: 8,
-            bytesPerRow: targetSize * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
-            return nil
-        }
-
-        context.interpolationQuality = .high
-        let destRect = CGRect(x: offsetX, y: offsetY, width: scaledWidth, height: scaledHeight)
-        context.draw(sourceCGImage, in: destRect)
-
-        guard let resultImage = context.makeImage() else { return nil }
-        return NSBitmapImageRep(cgImage: resultImage)
     }
 
     // MARK: - Windows Cursor Import
@@ -1367,7 +913,7 @@ struct CursorPreviewDropZone: View {
             // Calculate scale factor for hotspot adjustment
             let originalWidth = CGFloat(result.width)
             let originalHeight = CGFloat(result.height)
-            let targetSizeF = CGFloat(standardCursorSize)
+            let targetSizeF = CGFloat(CursorImageScaler.standardCursorSize)
 
             // For animated cursors, the sprite sheet height is frameCount * height
             // We need to scale the entire sprite sheet
@@ -1407,14 +953,14 @@ struct CursorPreviewDropZone: View {
             // Scale the bitmap to standard size (64x64 per frame)
             if frameCount > 1 {
                 // Animated cursor: scale each frame and stack vertically
-                guard let scaledBitmap = scaleWindowsSpriteSheet(originalBitmap, frameCount: frameCount, originalFrameWidth: Int(originalWidth), originalFrameHeight: Int(singleFrameHeight)) else {
+                guard let scaledBitmap = CursorImageScaler.scaleSpriteSheet(originalBitmap, frameCount: frameCount, originalFrameWidth: Int(originalWidth), originalFrameHeight: Int(singleFrameHeight)) else {
                     debugLog("Failed to scale animated cursor sprite sheet")
                     return false
                 }
                 cursor.setRepresentation(scaledBitmap, for: targetScale)
             } else {
                 // Static cursor: scale to 64x64
-                guard let scaledBitmap = scaleImageToStandardSize(originalBitmap) else {
+                guard let scaledBitmap = CursorImageScaler.scaleImageToStandardSize(originalBitmap) else {
                     debugLog("Failed to scale Windows cursor")
                     return false
                 }
@@ -1428,7 +974,7 @@ struct CursorPreviewDropZone: View {
             appState.cursorListRefreshTrigger += 1
 
             let frameInfo = result.frameCount > 1 ? " (\(result.frameCount) frames)" : ""
-            debugLog("Windows cursor imported: \(result.width)x\(result.height)\(frameInfo) → \(standardCursorSize)x\(standardCursorSize)")
+            debugLog("Windows cursor imported: \(result.width)x\(result.height)\(frameInfo) → \(CursorImageScaler.standardCursorSize)x\(CursorImageScaler.standardCursorSize)")
             return true
 
         } catch {
@@ -1437,378 +983,6 @@ struct CursorPreviewDropZone: View {
             appState.showImageImportWarning = true
             return false
         }
-    }
-
-    /// Scale a Windows cursor sprite sheet (animated cursor with multiple frames stacked vertically)
-    /// Crops each frame individually before scaling to prevent interpolation bleed across frame boundaries.
-    private func scaleWindowsSpriteSheet(_ original: NSBitmapImageRep, frameCount: Int, originalFrameWidth: Int, originalFrameHeight: Int) -> NSBitmapImageRep? {
-        let targetSize = standardCursorSize
-
-        guard let fullCGImage = original.cgImage else { return nil }
-
-        // Calculate aspect-fit scaling
-        let originalWidth = CGFloat(originalFrameWidth)
-        let originalHeight = CGFloat(originalFrameHeight)
-        let targetSizeF = CGFloat(targetSize)
-
-        let scale = min(targetSizeF / originalWidth, targetSizeF / originalHeight)
-        let scaledWidth = originalWidth * scale
-        let scaledHeight = originalHeight * scale
-
-        // Center offset
-        let offsetX = (targetSizeF - scaledWidth) / 2
-        let offsetY = (targetSizeF - scaledHeight) / 2
-
-        let totalDestHeight = targetSize * frameCount
-
-        // Use CGContext directly (thread-safe, no NSGraphicsContext overhead)
-        guard let context = CGContext(
-            data: nil,
-            width: targetSize,
-            height: totalDestHeight,
-            bitsPerComponent: 8,
-            bytesPerRow: targetSize * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
-            return nil
-        }
-
-        context.interpolationQuality = .high
-
-        for frameIndex in 0..<frameCount {
-            // Crop frame from sprite sheet using CGImage (top-left origin, integer pixels)
-            let cropRect = CGRect(x: 0, y: frameIndex * originalFrameHeight, width: originalFrameWidth, height: originalFrameHeight)
-            guard let frameCGImage = fullCGImage.cropping(to: cropRect) else { continue }
-
-            // Destination rect: frame 0 should be at top of new sprite sheet (bottom-left coords)
-            let dstY = CGFloat(totalDestHeight - (frameIndex + 1) * targetSize) + offsetY
-            let dstRect = CGRect(x: offsetX, y: dstY, width: scaledWidth, height: scaledHeight)
-
-            context.draw(frameCGImage, in: dstRect)
-        }
-
-        guard let resultImage = context.makeImage() else { return nil }
-        return NSBitmapImageRep(cgImage: resultImage)
-    }
-}
-
-// MARK: - Helper Tool Settings Section
-
-import ServiceManagement
-
-struct HelperToolSettingsView: View {
-    private static let helperBundleIdentifier = "com.sdmj76.mousecloakhelper"
-
-    @State private var isHelperInstalled = false
-    @State private var showInstallAlert = false
-    @State private var alertMessage = ""
-    @State private var alertTitle = ""
-    @Environment(LocalizationManager.self) private var localization
-
-    var body: some View {
-        Section(localization.localized("Helper Tool")) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(localization.localized("Mousecape Helper"))
-                        .font(.headline)
-                    Text(isHelperInstalled ? localization.localized("Installed and running") : localization.localized("Not installed"))
-                        .font(.caption)
-                        .foregroundStyle(isHelperInstalled ? .green : .secondary)
-                }
-
-                Spacer()
-
-                Button(isHelperInstalled ? localization.localized("Uninstall") : localization.localized("Install")) {
-                    toggleHelper()
-                }
-            }
-
-            Text(localization.localized("Once installed, the helper tool will automatically apply cursors at system startup without manually applying them."))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .onAppear {
-            checkHelperStatus()
-        }
-        .alert(alertTitle, isPresented: $showInstallAlert) {
-            Button(localization.localized("OK")) { }
-        } message: {
-            Text(alertMessage)
-        }
-    }
-
-    private func checkHelperStatus() {
-        let service = SMAppService.loginItem(identifier: Self.helperBundleIdentifier)
-        isHelperInstalled = (service.status == .enabled)
-    }
-
-    private func toggleHelper() {
-        let service = SMAppService.loginItem(identifier: Self.helperBundleIdentifier)
-        let shouldInstall = !isHelperInstalled
-
-        helperLog("=== Helper Toggle ===")
-        helperLog("Action: \(shouldInstall ? "Install" : "Uninstall")")
-        helperLog("Current SMAppService status: \(describeServiceStatus(service.status))")
-
-        // Log diagnostic info before install to help debug error 78
-        if shouldInstall {
-            logDiagnosticInfo()
-        }
-
-        do {
-            if shouldInstall {
-                // Before installing, try to clean up any stale launchd state
-                // This fixes error 78 when reinstalling after uninstall
-                forceCleanupLaunchdState()
-
-                helperLog("Calling SMAppService.register()...")
-                try service.register()
-
-                // Check status after registration
-                let newStatus = service.status
-                helperLog("After register - SMAppService status: \(describeServiceStatus(newStatus))")
-
-                // Handle requiresApproval status (error -9)
-                if newStatus == .requiresApproval {
-                    helperLog("Helper requires user approval in System Settings")
-                    isHelperInstalled = false
-                    alertTitle = localization.localized("Approval Required")
-                    alertMessage = localization.localized("Please approve Mousecape in System Settings > General > Login Items to enable the helper.")
-                } else {
-                    // Check actual launchd status
-                    let launchdStatus = checkLaunchdStatus()
-                    helperLog("After register - launchd: \(launchdStatus)")
-
-                    // If launchd shows error 78, try to repair
-                    if launchdStatus.contains("exit code: 78") || launchdStatus.contains("Not running") {
-                        helperLog("Helper registered but not running, attempting repair...")
-                        repairHelperAfterApproval(service: service)
-                    }
-
-                    isHelperInstalled = (newStatus == .enabled)
-                    if isHelperInstalled {
-                        alertTitle = localization.localized("Success")
-                        alertMessage = localization.localized("The Mousecape helper was successfully installed.")
-                    } else {
-                        alertTitle = localization.localized("Warning")
-                        alertMessage = localization.localized("Helper registered but may not be running. Please restart the app or reinstall the helper.")
-                    }
-                }
-            } else {
-                // First try launchctl bootout to fully remove from launchd
-                forceCleanupLaunchdState()
-
-                helperLog("Calling SMAppService.unregister()...")
-                try service.unregister()
-
-                helperLog("After unregister - SMAppService status: \(describeServiceStatus(service.status))")
-
-                isHelperInstalled = false
-                alertTitle = localization.localized("Success")
-                alertMessage = localization.localized("The Mousecape helper was successfully uninstalled.")
-            }
-            helperLog("Operation completed successfully")
-        } catch {
-            helperLog("ERROR: \(error.localizedDescription)")
-            helperLog("Error details: \(error)")
-
-            // Check if this is actually a requiresApproval situation
-            if service.status == .requiresApproval {
-                helperLog("Status is requiresApproval despite error")
-                isHelperInstalled = false
-                alertTitle = localization.localized("Approval Required")
-                alertMessage = localization.localized("Please approve Mousecape in System Settings > General > Login Items to enable the helper.")
-            } else {
-                // Log additional diagnostic info on failure
-                logDiagnosticInfo()
-                alertTitle = localization.localized("Error")
-                alertMessage = error.localizedDescription
-            }
-        }
-        showInstallAlert = true
-    }
-
-    /// Attempt to repair Helper after user approval
-    private func repairHelperAfterApproval(service: SMAppService) {
-        helperLog("--- Repair After Approval ---")
-
-        // Force cleanup
-        forceCleanupLaunchdState()
-
-        // Wait a moment for launchd to settle
-        Thread.sleep(forTimeInterval: 0.3)
-
-        // Try to unregister and re-register
-        do {
-            try? service.unregister()
-            helperLog("Unregistered for repair")
-
-            Thread.sleep(forTimeInterval: 0.3)
-
-            try service.register()
-            helperLog("Re-registered for repair")
-
-            let finalStatus = checkLaunchdStatus()
-            helperLog("After repair - launchd: \(finalStatus)")
-        } catch {
-            helperLog("Repair failed: \(error.localizedDescription)")
-        }
-    }
-
-    /// Log diagnostic information to help debug error 78
-    private func logDiagnosticInfo() {
-        helperLog("--- Diagnostic Info ---")
-
-        // 1. Check app location
-        if let appPath = Bundle.main.bundlePath as String? {
-            helperLog("App location: \(appPath)")
-            let isInApplications = appPath.hasPrefix("/Applications")
-            helperLog("Is in /Applications: \(isInApplications)")
-        }
-
-        // 2. Check helper bundle exists
-        if let helperURL = Bundle.main.url(forResource: "com.sdmj76.mousecloakhelper",
-                                            withExtension: "app",
-                                            subdirectory: "Contents/Library/LoginItems") {
-            helperLog("Helper bundle: \(helperURL.path)")
-            let exists = FileManager.default.fileExists(atPath: helperURL.path)
-            helperLog("Helper exists: \(exists)")
-        } else {
-            helperLog("Helper bundle: NOT FOUND in app bundle!")
-        }
-
-        // 3. Check current launchd state
-        let launchdStatus = checkLaunchdStatus()
-        helperLog("Current launchd state: \(launchdStatus)")
-
-        // 4. Check BTM (Background Task Management) status using sfltool
-        let btmStatus = checkBTMStatus()
-        helperLog("BTM registration: \(btmStatus)")
-
-        helperLog("--- End Diagnostic ---")
-    }
-
-    /// Check BTM (Background Task Management) status
-    private func checkBTMStatus() -> String {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sfltool")
-        process.arguments = ["dumpbtm"]
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8) ?? ""
-
-            // Find our helper in BTM output
-            let lines = output.components(separatedBy: "\n")
-            var foundHelper = false
-            var result: [String] = []
-
-            for (index, line) in lines.enumerated() {
-                if line.contains(Self.helperBundleIdentifier) || line.contains("mousecloakhelper") {
-                    foundHelper = true
-                    // Get context: 2 lines before and 5 lines after
-                    let start = max(0, index - 2)
-                    let end = min(lines.count - 1, index + 5)
-                    for i in start...end {
-                        result.append(lines[i].trimmingCharacters(in: .whitespaces))
-                    }
-                    break
-                }
-            }
-
-            if foundHelper {
-                return result.joined(separator: " | ")
-            } else {
-                return "Not found in BTM database"
-            }
-        } catch {
-            return "sfltool failed: \(error.localizedDescription)"
-        }
-    }
-
-    /// Describe SMAppService.Status in human-readable form
-    private func describeServiceStatus(_ status: SMAppService.Status) -> String {
-        switch status {
-        case .notRegistered:
-            return "notRegistered (0)"
-        case .enabled:
-            return "enabled (1)"
-        case .requiresApproval:
-            return "requiresApproval (2)"
-        case .notFound:
-            return "notFound (3)"
-        @unknown default:
-            return "unknown (\(status.rawValue))"
-        }
-    }
-
-    /// Force cleanup launchd state using launchctl bootout
-    /// This fixes error 78 when SMAppService.unregister() doesn't fully clean up
-    private func forceCleanupLaunchdState() {
-        let uid = getuid()
-        helperLog("Running: launchctl bootout gui/\(uid)/\(Self.helperBundleIdentifier)")
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = ["bootout", "gui/\(uid)/\(Self.helperBundleIdentifier)"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-
-        try? process.run()
-        process.waitUntilExit()
-        helperLog("launchctl bootout exit code: \(process.terminationStatus)")
-    }
-
-    /// Check launchd status for the helper using launchctl list
-    private func checkLaunchdStatus() -> String {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = ["list"]
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8) ?? ""
-
-            // Find the line for our helper
-            for line in output.components(separatedBy: "\n") {
-                if line.contains(Self.helperBundleIdentifier) {
-                    let parts = line.split(separator: "\t").map(String.init)
-                    if parts.count >= 3 {
-                        let pid = parts[0]
-                        let exitCode = parts[1]
-                        if pid == "-" {
-                            return "Not running (exit code: \(exitCode))"
-                        } else {
-                            return "Running (PID: \(pid), exit code: \(exitCode))"
-                        }
-                    }
-                    return line
-                }
-            }
-            return "Not found in launchctl list"
-        } catch {
-            return "Check failed: \(error.localizedDescription)"
-        }
-    }
-
-    /// Debug logging for helper operations
-    private func helperLog(_ message: String) {
-        #if DEBUG
-        DebugLogger.shared.log(message, file: "HelperToolSettings", line: 0)
-        #endif
     }
 }
 
