@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Preview Scale Constants
 
@@ -16,6 +17,7 @@ struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(LocalizationManager.self) private var localization
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var isDropTargeted = false
 
     // MARK: - Home Toolbar Content
     @ToolbarContentBuilder
@@ -249,6 +251,71 @@ struct HomeView: View {
                 AddCursorSheet(cape: cape)
             }
         }
+        // Cape file drop-to-import (only active on home page, not during editing)
+        .overlay {
+            if isDropTargeted && !appState.isEditing {
+                CapeDropOverlayView()
+            }
+        }
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+            guard !appState.isEditing else { return false }
+            return handleCapeDrop(providers)
+        }
+    }
+
+    // MARK: - Cape File Drop Handler
+
+    private func handleCapeDrop(_ providers: [NSItemProvider]) -> Bool {
+        var hasFileURL = false
+        for provider in providers {
+            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                hasFileURL = true
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                    guard let data = item as? Data,
+                          let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
+                    DispatchQueue.main.async {
+                        if url.pathExtension.lowercased() == "cape" {
+                            appState.importCape(from: url)
+                        } else {
+                            appState.operationResultMessage = LocalizationManager.shared.localized("Unsupported format. Only .cape files can be imported.")
+                            appState.operationResultIsSuccess = false
+                            appState.showOperationResult = true
+                        }
+                    }
+                }
+            }
+        }
+        return hasFileURL
+    }
+}
+
+// MARK: - Cape Drop Overlay View
+
+struct CapeDropOverlayView: View {
+    @Environment(LocalizationManager.self) private var localization
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+
+            VStack(spacing: 12) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundStyle(.white)
+
+                Text(localization.localized("Drop .cape files to import"))
+                    .font(.title3)
+                    .foregroundStyle(.white)
+            }
+            .padding(40)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
+                    .foregroundStyle(.white.opacity(0.6))
+            )
+        }
+        .allowsHitTesting(false)
     }
 }
 

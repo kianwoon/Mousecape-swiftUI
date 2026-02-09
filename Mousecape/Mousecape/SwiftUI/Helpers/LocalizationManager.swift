@@ -125,6 +125,7 @@ private let localizationStrings: [AppLanguage: [String: String]] = [
         "Create a new cape or import an existing one to get started.": "Create a new cape or import an existing one to get started.",
         "New Cape": "New Cape",
         "Import Cape": "Import Cape",
+        "Drop .cape files to import": "Drop .cape files to import",
         "Select a Cape": "Select a Cape",
         "Choose a cape from the list to preview": "Choose a cape from the list to preview",
 
@@ -194,6 +195,8 @@ private let localizationStrings: [AppLanguage: [String: String]] = [
         "A cape with the filename": "A cape with the filename",
         "already exists. Please change the Name or Author to use a different filename.": "already exists. Please change the Name or Author to use a different filename.",
         "Validation Error": "Validation Error",
+        "Unsupported format. Only .cape files can be imported.": "Unsupported format. Only .cape files can be imported.",
+        "Unsupported image format. Supported formats: PNG, JPEG, TIFF, GIF, CUR, ANI.": "Unsupported image format. Supported formats: PNG, JPEG, TIFF, GIF, CUR, ANI.",
         "Image Adjusted": "Image Adjusted",
         "Import Complete": "Import Complete",
         "Import Failed": "Import Failed",
@@ -338,6 +341,7 @@ private let localizationStrings: [AppLanguage: [String: String]] = [
         "Create a new cape or import an existing one to get started.": "创建新的Cape或导入现有Cape以开始使用。",
         "New Cape": "新建Cape",
         "Import Cape": "导入Cape",
+        "Drop .cape files to import": "拖放 .cape 文件以导入",
         "Select a Cape": "选择一个Cape",
         "Choose a cape from the list to preview": "从列表中选择一个Cape进行预览",
 
@@ -407,6 +411,8 @@ private let localizationStrings: [AppLanguage: [String: String]] = [
         "A cape with the filename": "文件名为",
         "already exists. Please change the Name or Author to use a different filename.": "的Cape已存在。请更改名称或作者以使用不同的文件名。",
         "Validation Error": "验证错误",
+        "Unsupported format. Only .cape files can be imported.": "不支持的格式，只能导入 .cape 文件。",
+        "Unsupported image format. Supported formats: PNG, JPEG, TIFF, GIF, CUR, ANI.": "不支持的图片格式。支持的格式：PNG、JPEG、TIFF、GIF、CUR、ANI。",
         "Image Adjusted": "图像已调整",
         "Import Complete": "导入完成",
         "Import Failed": "导入失败",

@@ -701,6 +701,8 @@ struct CursorPreviewDropZone: View {
 
         guard let image = NSImage(contentsOf: url) else {
             debugLog("Failed to load image from: \(url)")
+            appState.validationErrorMessage = LocalizationManager.shared.localized("Unsupported image format. Supported formats: PNG, JPEG, TIFF, GIF, CUR, ANI.")
+            appState.showValidationError = true
             return false
         }
 
