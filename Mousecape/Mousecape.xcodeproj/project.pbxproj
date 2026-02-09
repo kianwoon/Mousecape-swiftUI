@@ -21,12 +21,12 @@
 		DE3662082EFAAAB600D94521 /* CapePreviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE3661F22EFAAAB600D94521 /* CapePreviewPanel.swift */; };
 		DE3662092EFAAAB600D94521 /* Cursor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE3661ED2EFAAAB600D94521 /* Cursor.swift */; };
 		DE36620A2EFAAAB600D94521 /* AppEnums.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE3661EB2EFAAAB600D94521 /* AppEnums.swift */; };
-		DE36620B2EFAAAB600D94521 /* LocalizationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE36620C2EFAAAB600D94521 /* LocalizationManager.swift */; };
 		DE525A822EFE93C200A315A3 /* WindowsCursorConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE525A7F2EFE93C200A315A3 /* WindowsCursorConverter.swift */; };
 		DE525A832EFE93C200A315A3 /* OrderedSetSortedInsert.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE525A7E2EFE93C200A315A3 /* OrderedSetSortedInsert.swift */; };
 		DE525A852EFE93C200A315A3 /* DirectoryLocations.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE525A7D2EFE93C200A315A3 /* DirectoryLocations.swift */; };
 		DE654C422F0A6DB40025E5A0 /* WindowsINFParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE654C412F0A6DB40025E5A0 /* WindowsINFParser.swift */; };
 		DE6B14B42F0512EE00742257 /* WindowsCursorParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE6B14B32F0512EE00742257 /* WindowsCursorParser.swift */; };
+		DEA0B0012F59000000000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = DEA0B0042F59000000000003 /* Localizable.strings */; };
 		DEAB0D642F39ADB000DB9EB0 /* CursorImageScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAB0D632F39ADB000DB9EB0 /* CursorImageScaler.swift */; };
 		DEBC96002F16577D004E6C07 /* MCLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = DEBC95FF2F16577D004E6C07 /* MCLogger.m */; };
 		DEBC96012F16577D004E6C07 /* MCLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = DEBC95FF2F16577D004E6C07 /* MCLogger.m */; };
@@ -143,12 +143,13 @@
 		DE3661F62EFAAAB600D94521 /* MousecapeCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MousecapeCommands.swift; sourceTree = "<group>"; };
 		DE3661F72EFAAAB600D94521 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		DE3661F92EFAAAB600D94521 /* MousecapeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MousecapeApp.swift; sourceTree = "<group>"; };
-		DE36620C2EFAAAB600D94521 /* LocalizationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationManager.swift; sourceTree = "<group>"; };
 		DE525A7D2EFE93C200A315A3 /* DirectoryLocations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryLocations.swift; sourceTree = "<group>"; };
 		DE525A7E2EFE93C200A315A3 /* OrderedSetSortedInsert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderedSetSortedInsert.swift; sourceTree = "<group>"; };
 		DE525A7F2EFE93C200A315A3 /* WindowsCursorConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowsCursorConverter.swift; sourceTree = "<group>"; };
 		DE654C412F0A6DB40025E5A0 /* WindowsINFParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowsINFParser.swift; sourceTree = "<group>"; };
 		DE6B14B32F0512EE00742257 /* WindowsCursorParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowsCursorParser.swift; sourceTree = "<group>"; };
+		DEA0B0002F59000000000001 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		DEA0B0022F59000000000002 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		DEAB0D632F39ADB000DB9EB0 /* CursorImageScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorImageScaler.swift; sourceTree = "<group>"; };
 		DEBC95FE2F16577D004E6C07 /* MCLogger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MCLogger.h; sourceTree = "<group>"; };
 		DEBC95FF2F16577D004E6C07 /* MCLogger.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MCLogger.m; sourceTree = "<group>"; };
@@ -271,7 +272,6 @@
 			children = (
 				DE3661E82EFAAAB600D94521 /* AnimatingCursorView.swift */,
 				DE3661E92EFAAAB600D94521 /* GlassEffectContainer.swift */,
-				DE36620C2EFAAAB600D94521 /* LocalizationManager.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -383,6 +383,7 @@
 		FAC69F6A189D603C00BC829D /* Mousecape */ = {
 			isa = PBXGroup;
 			children = (
+				DEA0B0042F59000000000003 /* Localizable.strings */,
 				DE3661FB2EFAAAB600D94521 /* SwiftUI */,
 				FA5733A32495667900103FCF /* Mousecape.entitlements */,
 				FAEE650D18A047E8003AA182 /* controllers */,
@@ -611,7 +612,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
-				no,
+				"zh-Hans",
 			);
 			mainGroup = FAC69F58189D603C00BC829D;
 			productRefGroup = FAC69F62189D603C00BC829D /* Products */;
@@ -630,6 +631,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DEA0B0012F59000000000001 /* Localizable.strings in Resources */,
 				FAC69F7D189D603C00BC829D /* Images.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -682,7 +684,6 @@
 				DE3662082EFAAAB600D94521 /* CapePreviewPanel.swift in Sources */,
 				DE3662092EFAAAB600D94521 /* Cursor.swift in Sources */,
 				DE36620A2EFAAAB600D94521 /* AppEnums.swift in Sources */,
-				DE36620B2EFAAAB600D94521 /* LocalizationManager.swift in Sources */,
 				FAC69FDC189D636700BC829D /* MCDefs.m in Sources */,
 				DEBC96042F165800004E6C07 /* MCLogger.m in Sources */,
 				FA359840189DA3C100288163 /* MCPrefs.m in Sources */,
@@ -736,6 +737,18 @@
 			targetProxy = FA359846189DBEB700288163 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		DEA0B0042F59000000000003 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DEA0B0002F59000000000001 /* en */,
+				DEA0B0022F59000000000002 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		FAC69F90189D603C00BC829D /* Debug */ = {

@@ -14,14 +14,10 @@ struct MousecapeCommands: Commands {
         selectedCapeBinding?.wrappedValue
     }
 
-    private func L(_ key: String) -> String {
-        LocalizationManager.shared.localized(key)
-    }
-
     var body: some Commands {
         // MARK: - Mousecape menu (App menu)
         CommandGroup(after: .appSettings) {
-            Button(L("Settings...")) {
+            Button(String(localized:"Settings...")) {
                 Task { @MainActor in
                     AppState.shared.currentPage = .settings
                 }
@@ -30,7 +26,7 @@ struct MousecapeCommands: Commands {
 
             Divider()
 
-            Button(L("Reset to Default")) {
+            Button(String(localized:"Reset to Default")) {
                 Task { @MainActor in
                     AppState.shared.resetToDefault()
                 }
@@ -40,14 +36,14 @@ struct MousecapeCommands: Commands {
 
         // MARK: - File menu
         CommandGroup(replacing: .newItem) {
-            Button(L("New Cape")) {
+            Button(String(localized:"New Cape")) {
                 Task { @MainActor in
                     AppState.shared.createNewCape()
                 }
             }
             .keyboardShortcut("n", modifiers: .command)
 
-            Button(L("Import from Windows...")) {
+            Button(String(localized:"Import from Windows...")) {
                 Task { @MainActor in
                     AppState.shared.importWindowsCursorFolder()
                 }
@@ -56,14 +52,14 @@ struct MousecapeCommands: Commands {
 
             Divider()
 
-            Button(L("Import Cape...")) {
+            Button(String(localized:"Import Cape...")) {
                 Task { @MainActor in
                     AppState.shared.importCape()
                 }
             }
             .keyboardShortcut("i", modifiers: .command)
 
-            Button(L("Export Cape...")) {
+            Button(String(localized:"Export Cape...")) {
                 if let cape = selectedCape {
                     Task { @MainActor in
                         AppState.shared.exportCape(cape)
@@ -75,7 +71,7 @@ struct MousecapeCommands: Commands {
 
             Divider()
 
-            Button(L("Delete Cape")) {
+            Button(String(localized:"Delete Cape")) {
                 if let cape = selectedCape {
                     Task { @MainActor in
                         AppState.shared.confirmDeleteCape(cape)
@@ -91,7 +87,7 @@ struct MousecapeCommands: Commands {
 
         // MARK: - Edit menu
         CommandGroup(replacing: .undoRedo) {
-            Button(L("Undo")) {
+            Button(String(localized:"Undo")) {
                 Task { @MainActor in
                     AppState.shared.undo()
                 }
@@ -99,7 +95,7 @@ struct MousecapeCommands: Commands {
             .keyboardShortcut("z", modifiers: .command)
             .disabled(!AppState.shared.canUndo || !AppState.shared.isEditing)
 
-            Button(L("Redo")) {
+            Button(String(localized:"Redo")) {
                 Task { @MainActor in
                     AppState.shared.redo()
                 }
@@ -109,7 +105,7 @@ struct MousecapeCommands: Commands {
 
             Divider()
 
-            Button(L("Save Cape")) {
+            Button(String(localized:"Save Cape")) {
                 Task { @MainActor in
                     if AppState.shared.isEditing, let cape = AppState.shared.editingCape {
                         AppState.shared.saveCape(cape)

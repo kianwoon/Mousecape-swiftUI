@@ -13,7 +13,6 @@ import SwiftUI
 struct CapeInfoView: View {
     @Bindable var cape: CursorLibrary
     @Environment(AppState.self) private var appState
-    @Environment(LocalizationManager.self) private var localization
 
     /// Current filename from fileURL
     private var currentFilename: String {
@@ -40,11 +39,11 @@ struct CapeInfoView: View {
             VStack(spacing: 20) {
                 // Cape metadata form
                 VStack(alignment: .leading, spacing: 16) {
-                    Text(localization.localized("Cape Information"))
+                    Text(String(localized:"Cape Information"))
                         .font(.headline)
 
-                    LabeledContent(localization.localized("Name")) {
-                        TextField(localization.localized("Name"), text: Binding(
+                    LabeledContent(String(localized:"Name")) {
+                        TextField(String(localized:"Name"), text: Binding(
                             get: { cape.name },
                             set: { newValue in
                                 // Filter to only allow valid filename characters
@@ -66,8 +65,8 @@ struct CapeInfoView: View {
                         )
                     }
 
-                    LabeledContent(localization.localized("Author")) {
-                        TextField(localization.localized("Author"), text: Binding(
+                    LabeledContent(String(localized:"Author")) {
+                        TextField(String(localized:"Author"), text: Binding(
                             get: { cape.author },
                             set: { newValue in
                                 // Filter to only allow valid filename characters
@@ -89,8 +88,8 @@ struct CapeInfoView: View {
                         )
                     }
 
-                    LabeledContent(localization.localized("Version")) {
-                        TextField(localization.localized("Version"), value: Binding(
+                    LabeledContent(String(localized:"Version")) {
+                        TextField(String(localized:"Version"), value: Binding(
                             get: { cape.version },
                             set: { newValue in
                                 let oldValue = cape.version
@@ -114,12 +113,12 @@ struct CapeInfoView: View {
 
                     Divider()
 
-                    LabeledContent(localization.localized("Cursors")) {
+                    LabeledContent(String(localized:"Cursors")) {
                         Text("\(cape.cursorCount)")
                             .foregroundStyle(.secondary)
                     }
 
-                    LabeledContent(localization.localized("File")) {
+                    LabeledContent(String(localized:"File")) {
                         // Show current filename (updates after save)
                         Text(currentFilename)
                             .foregroundStyle(.secondary)
@@ -132,7 +131,7 @@ struct CapeInfoView: View {
 
                 // Cursor summary
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("\(localization.localized("Cursors")) (\(cape.cursorCount))")
+                    Text("\(String(localized:"Cursors")) (\(cape.cursorCount))")
                         .font(.headline)
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 60))], spacing: 8) {

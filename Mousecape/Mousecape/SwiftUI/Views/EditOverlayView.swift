@@ -28,7 +28,6 @@ extension UTType {
 struct EditDetailContent: View {
     let cape: CursorLibrary
     @Environment(AppState.self) private var appState
-    @Environment(LocalizationManager.self) private var localization
 
     var body: some View {
         Group {
@@ -39,9 +38,9 @@ struct EditDetailContent: View {
                     .id(cursor.id)  // Force view recreation when cursor changes
             } else {
                 ContentUnavailableView(
-                    localization.localized("Select a Cursor"),
+                    String(localized:"Select a Cursor"),
                     systemImage: "cursorarrow.click",
-                    description: Text(localization.localized("Choose a cursor from the list to edit"))
+                    description: Text(String(localized:"Choose a cursor from the list to edit"))
                 )
             }
         }
@@ -65,14 +64,14 @@ struct EditDetailContent: View {
                 }) {
                     Image(systemName: "plus")
                 }
-                .help(localization.localized("Add Cursor"))
+                .help(String(localized:"Add Cursor"))
 
                 Button(action: {
                     appState.showDeleteCursorConfirmation = true
                 }) {
                     Image(systemName: "minus")
                 }
-                .help(localization.localized("Delete Cursor"))
+                .help(String(localized:"Delete Cursor"))
                 .disabled(appState.editingSelectedCursor == nil)
 
                 Button(action: {
@@ -83,7 +82,7 @@ struct EditDetailContent: View {
                 }) {
                     Image(systemName: appState.showCapeInfo ? "info.circle.fill" : "info.circle")
                 }
-                .help(localization.localized("Cape Info"))
+                .help(String(localized:"Cape Info"))
             }
 
             AdaptiveToolbarSpacer(.fixed)
@@ -95,7 +94,7 @@ struct EditDetailContent: View {
                 }) {
                     Image(systemName: "checkmark")
                 }
-                .help(localization.localized("Done"))
+                .help(String(localized:"Done"))
             }
         }
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
@@ -157,7 +156,6 @@ struct CursorListView: View {
     let cape: CursorLibrary
     @Binding var selection: Cursor?
     @Environment(AppState.self) private var appState
-    @Environment(LocalizationManager.self) private var localization
 
     var body: some View {
         @Bindable var appState = appState
@@ -166,11 +164,11 @@ struct CursorListView: View {
             CursorListRow(cursor: cursor, currentIdentifier: cursor.identifier)
                 .tag(cursor)
                 .contextMenu {
-                    Button(localization.localized("Duplicate")) {
+                    Button(String(localized:"Duplicate")) {
                         duplicateCursor()
                     }
                     Divider()
-                    Button(localization.localized("Delete"), role: .destructive) {
+                    Button(String(localized:"Delete"), role: .destructive) {
                         appState.showDeleteCursorConfirmation = true
                     }
                 }
@@ -214,7 +212,6 @@ struct CursorListRow: View {
     let cursor: Cursor
     /// Pass the identifier to force refresh when type changes
     var currentIdentifier: String?
-    @Environment(LocalizationManager.self) private var localization
 
     private var displayName: String {
         let identifier = currentIdentifier ?? cursor.identifier
@@ -250,7 +247,7 @@ struct CursorListRow: View {
                 Text(displayName)
                     .font(.headline)
                 if cursor.isAnimated {
-                    Text("\(cursor.frameCount) \(localization.localized("frames"))")
+                    Text("\(cursor.frameCount) \(String(localized:"frames"))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -266,7 +263,6 @@ struct CursorDetailView: View {
     @Bindable var cursor: Cursor
     let cape: CursorLibrary
     @Environment(AppState.self) private var appState
-    @Environment(LocalizationManager.self) private var localization
     @State private var hotspotX: Double = 0
     @State private var hotspotY: Double = 0
     @State private var frameCount: Int = 1
@@ -332,7 +328,7 @@ struct CursorDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     // Type section
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(localization.localized("Type"))
+                        Text(String(localized:"Type"))
                             .font(.headline)
 
                         Picker("", selection: $selectedType) {
@@ -376,7 +372,7 @@ struct CursorDetailView: View {
 
                     // Hotspot section
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(localization.localized("Hotspot"))
+                        Text(String(localized:"Hotspot"))
                             .font(.headline)
 
                         HStack(spacing: 16) {
@@ -464,11 +460,11 @@ struct CursorDetailView: View {
 
                     // Animation section
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(localization.localized("Animation"))
+                        Text(String(localized:"Animation"))
                             .font(.headline)
 
                         HStack {
-                            Text(localization.localized("Frames:"))
+                            Text(String(localized:"Frames:"))
                             TextField("Frames", value: $frameCount, format: .number)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 60)
@@ -499,7 +495,7 @@ struct CursorDetailView: View {
                         }
 
                         HStack {
-                            Text(localization.localized("Speed:"))
+                            Text(String(localized:"Speed:"))
                             TextField("Speed", value: $fps, format: .number.precision(.fractionLength(1)))
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 60)
@@ -529,7 +525,7 @@ struct CursorDetailView: View {
                                         }
                                     )
                                 }
-                            Text(localization.localized("frames/sec"))
+                            Text(String(localized:"frames/sec"))
                                 .foregroundStyle(.secondary)
                         }
 
@@ -587,7 +583,6 @@ struct CursorPreviewDropZone: View {
     @Bindable var cursor: Cursor
     var refreshTrigger: Int = 0
     @Environment(AppState.self) private var appState
-    @Environment(LocalizationManager.self) private var localization
     @State private var isTargeted = false
     @State private var showFilePicker = false
     @State private var localRefreshTrigger = 0
@@ -623,11 +618,11 @@ struct CursorPreviewDropZone: View {
                         .font(.system(size: 48))
                         .foregroundStyle(.tertiary)
 
-                    Text(localization.localized("Drag image or click to select"))
+                    Text(String(localized:"Drag image or click to select"))
                         .font(.headline)
                         .foregroundStyle(.secondary)
 
-                    Text(localization.localized("Recommended: 64×64 px (HiDPI 2x)"))
+                    Text(String(localized:"Recommended: 64×64 px (HiDPI 2x)"))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
@@ -662,7 +657,7 @@ struct CursorPreviewDropZone: View {
         ) { result in
             handleFileImport(result)
         }
-        .help(hasImage ? localization.localized("Click or drag to replace image") : localization.localized("Click or drag to add image"))
+        .help(hasImage ? String(localized:"Click or drag to replace image") : String(localized:"Click or drag to add image"))
     }
 
     private func handleURLDrop(_ urls: [URL]) -> Bool {
@@ -701,7 +696,7 @@ struct CursorPreviewDropZone: View {
 
         guard let image = NSImage(contentsOf: url) else {
             debugLog("Failed to load image from: \(url)")
-            appState.validationErrorMessage = LocalizationManager.shared.localized("Unsupported image format. Supported formats: PNG, JPEG, TIFF, GIF, CUR, ANI.")
+            appState.validationErrorMessage = String(localized:"Unsupported image format. Supported formats: PNG, JPEG, TIFF, GIF, CUR, ANI.")
             appState.showValidationError = true
             return false
         }
@@ -841,10 +836,10 @@ struct CursorPreviewDropZone: View {
                 // More than 20% frames failed - show warning to user
                 DispatchQueue.main.async {
                     let alert = NSAlert()
-                    alert.messageText = LocalizationManager.shared.localized("gif_decode_warning_title")
-                    alert.informativeText = String(format: LocalizationManager.shared.localized("gif_decode_warning_message"), failedFrames, frameCount)
+                    alert.messageText = String(localized:"gif_decode_warning_title")
+                    alert.informativeText = String(format: String(localized:"gif_decode_warning_message"), failedFrames, frameCount)
                     alert.alertStyle = .warning
-                    alert.addButton(withTitle: LocalizationManager.shared.localized("ok"))
+                    alert.addButton(withTitle: String(localized:"ok"))
                     alert.runModal()
                 }
             }
@@ -993,5 +988,4 @@ struct CursorPreviewDropZone: View {
 #Preview {
     EditOverlayView(cape: CursorLibrary(name: "Test Cape", author: "Test"))
         .environment(AppState.shared)
-        .environment(LocalizationManager.shared)
 }

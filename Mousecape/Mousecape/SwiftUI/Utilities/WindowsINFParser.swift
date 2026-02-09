@@ -44,21 +44,19 @@ enum INFParseError: Error, LocalizedError {
         }
     }
 
-    /// Localized description for display in UI (must be called on MainActor)
-    @MainActor
+    /// Localized description for display in UI
     var localizedUIDescription: String {
-        let l = LocalizationManager.shared
         switch self {
         case .fileNotFound(let path):
-            return "\(l.localized("INF file not found:")) \(path)"
+            return "\(String(localized: "INF file not found:")) \(path)"
         case .encodingError(let path):
-            return "\(l.localized("Failed to read INF file (encoding error):")) \(path)"
+            return "\(String(localized: "Failed to read INF file (encoding error):")) \(path)"
         case .noSchemeRegSection:
-            return l.localized("No [Scheme.Reg] section found in INF file")
+            return String(localized: "No [Scheme.Reg] section found in INF file")
         case .noCursorPaths:
-            return l.localized("No cursor paths found in [Scheme.Reg]")
+            return String(localized: "No cursor paths found in [Scheme.Reg]")
         case .noValidCursors:
-            return l.localized("No valid cursor filenames could be resolved")
+            return String(localized: "No valid cursor filenames could be resolved")
         }
     }
 }

@@ -15,27 +15,26 @@ struct HelperToolSettingsView: View {
     @State private var showInstallAlert = false
     @State private var alertMessage = ""
     @State private var alertTitle = ""
-    @Environment(LocalizationManager.self) private var localization
 
     var body: some View {
-        Section(localization.localized("Helper Tool")) {
+        Section(String(localized:"Helper Tool")) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(localization.localized("Mousecape Helper"))
+                    Text(String(localized:"Mousecape Helper"))
                         .font(.headline)
-                    Text(isHelperInstalled ? localization.localized("Installed and running") : localization.localized("Not installed"))
+                    Text(isHelperInstalled ? String(localized:"Installed and running") : String(localized:"Not installed"))
                         .font(.caption)
                         .foregroundStyle(isHelperInstalled ? .green : .secondary)
                 }
 
                 Spacer()
 
-                Button(isHelperInstalled ? localization.localized("Uninstall") : localization.localized("Install")) {
+                Button(isHelperInstalled ? String(localized:"Uninstall") : String(localized:"Install")) {
                     toggleHelper()
                 }
             }
 
-            Text(localization.localized("Once installed, the helper tool will automatically apply cursors at system startup without manually applying them."))
+            Text(String(localized:"Once installed, the helper tool will automatically apply cursors at system startup without manually applying them."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -43,7 +42,7 @@ struct HelperToolSettingsView: View {
             checkHelperStatus()
         }
         .alert(alertTitle, isPresented: $showInstallAlert) {
-            Button(localization.localized("OK")) { }
+            Button(String(localized:"OK")) { }
         } message: {
             Text(alertMessage)
         }
@@ -84,8 +83,8 @@ struct HelperToolSettingsView: View {
                 if newStatus == .requiresApproval {
                     helperLog("Helper requires user approval in System Settings")
                     isHelperInstalled = false
-                    alertTitle = localization.localized("Approval Required")
-                    alertMessage = localization.localized("Please approve Mousecape in System Settings > General > Login Items to enable the helper.")
+                    alertTitle = String(localized:"Approval Required")
+                    alertMessage = String(localized:"Please approve Mousecape in System Settings > General > Login Items to enable the helper.")
                 } else {
                     // Check actual launchd status
                     let launchdStatus = checkLaunchdStatus()
@@ -99,11 +98,11 @@ struct HelperToolSettingsView: View {
 
                     isHelperInstalled = (newStatus == .enabled)
                     if isHelperInstalled {
-                        alertTitle = localization.localized("Success")
-                        alertMessage = localization.localized("The Mousecape helper was successfully installed.")
+                        alertTitle = String(localized:"Success")
+                        alertMessage = String(localized:"The Mousecape helper was successfully installed.")
                     } else {
-                        alertTitle = localization.localized("Warning")
-                        alertMessage = localization.localized("Helper registered but may not be running. Please restart the app or reinstall the helper.")
+                        alertTitle = String(localized:"Warning")
+                        alertMessage = String(localized:"Helper registered but may not be running. Please restart the app or reinstall the helper.")
                     }
                 }
             } else {
@@ -116,8 +115,8 @@ struct HelperToolSettingsView: View {
                 helperLog("After unregister - SMAppService status: \(describeServiceStatus(service.status))")
 
                 isHelperInstalled = false
-                alertTitle = localization.localized("Success")
-                alertMessage = localization.localized("The Mousecape helper was successfully uninstalled.")
+                alertTitle = String(localized:"Success")
+                alertMessage = String(localized:"The Mousecape helper was successfully uninstalled.")
             }
             helperLog("Operation completed successfully")
         } catch {
@@ -128,12 +127,12 @@ struct HelperToolSettingsView: View {
             if service.status == .requiresApproval {
                 helperLog("Status is requiresApproval despite error")
                 isHelperInstalled = false
-                alertTitle = localization.localized("Approval Required")
-                alertMessage = localization.localized("Please approve Mousecape in System Settings > General > Login Items to enable the helper.")
+                alertTitle = String(localized:"Approval Required")
+                alertMessage = String(localized:"Please approve Mousecape in System Settings > General > Login Items to enable the helper.")
             } else {
                 // Log additional diagnostic info on failure
                 logDiagnosticInfo()
-                alertTitle = localization.localized("Error")
+                alertTitle = String(localized:"Error")
                 alertMessage = error.localizedDescription
             }
         }

@@ -12,7 +12,6 @@ import ServiceManagement
 @main
 struct MousecapeApp: App {
     @State private var appState = AppState.shared
-    @State private var localization = LocalizationManager.shared
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -20,7 +19,6 @@ struct MousecapeApp: App {
             AppearanceWrapper {
                 ContentView()
                     .environment(appState)
-                    .environment(localization)
             }
             .onAppear {
                 configureWindowAppearance()
@@ -440,8 +438,8 @@ struct ContentView: View {
 
         MainView()
             // Error alert
-            .alert("Error", isPresented: $appState.showError) {
-                Button("OK") {
+            .alert(String(localized: "Error"), isPresented: $appState.showError) {
+                Button(String(localized: "OK")) {
                     appState.showError = false
                 }
             } message: {

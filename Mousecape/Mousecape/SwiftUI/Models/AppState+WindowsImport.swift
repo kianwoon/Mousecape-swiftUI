@@ -32,7 +32,7 @@ extension AppState {
     fileprivate func processWindowsCursorFolderAsync(_ folderURL: URL) async {
         // Show loading overlay
         isLoading = true
-        loadingMessage = LocalizationManager.shared.localized("Importing Windows cursors...")
+        loadingMessage = String(localized:"Importing Windows cursors...")
 
         // Check for valid INF with [Scheme.Reg] section
         switch WindowsINFParser.findValidINF(in: folderURL) {
@@ -42,7 +42,7 @@ extension AppState {
         case .failure(let error):
             debugLog("INF parsing failed: \(error.localizedDescription)")
             isLoading = false
-            importResultMessage = "\(LocalizationManager.shared.localized("No valid install.inf file found.")) \(error.localizedUIDescription)"
+            importResultMessage = "\(String(localized:"No valid install.inf file found.")) \(error.localizedUIDescription)"
             importResultIsSuccess = false
             showImportResult = true
         }
@@ -61,7 +61,7 @@ extension AppState {
 
             if results.isEmpty {
                 isLoading = false
-                importResultMessage = LocalizationManager.shared.localized("No valid cursor files found in the selected folder.")
+                importResultMessage = String(localized:"No valid cursor files found in the selected folder.")
                 importResultIsSuccess = false
                 showImportResult = true
                 return
@@ -142,7 +142,7 @@ extension AppState {
 
         } catch {
             isLoading = false
-            importResultMessage = "\(LocalizationManager.shared.localized("Failed to import Windows cursors:")) \(error.localizedDescription)"
+            importResultMessage = "\(String(localized:"Failed to import Windows cursors:")) \(error.localizedDescription)"
             importResultIsSuccess = false
             showImportResult = true
         }
@@ -152,7 +152,7 @@ extension AppState {
     fileprivate func finishImport(newCape: CursorLibrary, capeName: String, importedCount: Int, fileCount: Int) {
         if importedCount == 0 {
             isLoading = false
-            importResultMessage = LocalizationManager.shared.localized("No cursors could be mapped to macOS cursor types.")
+            importResultMessage = String(localized:"No cursors could be mapped to macOS cursor types.")
             importResultIsSuccess = false
             showImportResult = true
             return
@@ -177,18 +177,18 @@ extension AppState {
 
                 // Show success message
                 isLoading = false
-                importResultMessage = "\(LocalizationManager.shared.localized("Successfully imported")) \(importedCount) \(LocalizationManager.shared.localized("cursor(s) from")) \(fileCount) \(LocalizationManager.shared.localized("file(s)."))"
+                importResultMessage = "\(String(localized:"Successfully imported")) \(importedCount) \(String(localized:"cursor(s) from")) \(fileCount) \(String(localized:"file(s)."))"
                 importResultIsSuccess = true
                 showImportResult = true
             } catch {
                 isLoading = false
-                importResultMessage = "\(LocalizationManager.shared.localized("Failed to save cape:")) \(error.localizedDescription)"
+                importResultMessage = "\(String(localized:"Failed to save cape:")) \(error.localizedDescription)"
                 importResultIsSuccess = false
                 showImportResult = true
             }
         } else {
             isLoading = false
-            importResultMessage = LocalizationManager.shared.localized("Failed to access library directory.")
+            importResultMessage = String(localized:"Failed to access library directory.")
             importResultIsSuccess = false
             showImportResult = true
         }

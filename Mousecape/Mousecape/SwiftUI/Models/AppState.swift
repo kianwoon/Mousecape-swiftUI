@@ -353,7 +353,7 @@ final class AppState: @unchecked Sendable {
             loadCapes()
 
             // Show success message with cape name
-            operationResultMessage = "\"\(capeName)\" \(LocalizationManager.shared.localized("has been imported."))"
+            operationResultMessage = "\"\(capeName)\" \(String(localized:"has been imported."))"
             operationResultIsSuccess = true
             showOperationResult = true
         }
@@ -626,10 +626,10 @@ final class AppState: @unchecked Sendable {
     private func exportCapeToURL(_ cape: CursorLibrary, url: URL) {
         let success = cape.underlyingLibrary.write(toFile: url.path, atomically: true)
         if success {
-            operationResultMessage = "\"\(cape.name)\" \(LocalizationManager.shared.localized("has been exported."))"
+            operationResultMessage = "\"\(cape.name)\" \(String(localized:"has been exported."))"
             operationResultIsSuccess = true
         } else {
-            operationResultMessage = LocalizationManager.shared.localized("Failed to export cape.")
+            operationResultMessage = String(localized:"Failed to export cape.")
             operationResultIsSuccess = false
         }
         showOperationResult = true

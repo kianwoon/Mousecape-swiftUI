@@ -14,7 +14,6 @@ struct AddCursorSheet: View {
     let cape: CursorLibrary
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
-    @Environment(LocalizationManager.self) private var localization
     @State private var selectedType: CursorType?
 
     // Filter out cursor types that already exist in the cape
@@ -25,7 +24,7 @@ struct AddCursorSheet: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text(localization.localized("Add Cursor"))
+            Text(String(localized:"Add Cursor"))
                 .font(.headline)
 
             cursorTypeList
@@ -43,9 +42,9 @@ struct AddCursorSheet: View {
     private var cursorTypeList: some View {
         if availableTypes.isEmpty {
             ContentUnavailableView(
-                localization.localized("All Cursor Types Added"),
+                String(localized:"All Cursor Types Added"),
                 systemImage: "checkmark.circle",
-                description: Text(localization.localized("This cape already contains all standard cursor types."))
+                description: Text(String(localized:"This cape already contains all standard cursor types."))
             )
         } else {
             ScrollView {
@@ -67,14 +66,14 @@ struct AddCursorSheet: View {
 
     private var buttonBar: some View {
         HStack {
-            Button(localization.localized("Cancel")) {
+            Button(String(localized:"Cancel")) {
                 dismiss()
             }
             .keyboardShortcut(.cancelAction)
 
             Spacer()
 
-            Button(localization.localized("Add")) {
+            Button(String(localized:"Add")) {
                 addSelectedCursor()
             }
             .keyboardShortcut(.defaultAction)

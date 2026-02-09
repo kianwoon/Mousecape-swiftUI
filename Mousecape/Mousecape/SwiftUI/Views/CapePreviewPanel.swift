@@ -15,7 +15,6 @@ private let previewPanelScale: CGFloat = 1.5
 struct CapePreviewPanel: View {
     let cape: CursorLibrary
     @Environment(AppState.self) private var appState
-    @Environment(LocalizationManager.self) private var localization
     @State private var zoomedCursor: Cursor?
     @State private var zoomTrigger: Int = 0 // Increment to force view recreation
     @State private var cachedCursors: [Cursor] = []
@@ -41,7 +40,7 @@ struct CapePreviewPanel: View {
                                 }
                             }
                             if showAuthorInfo {
-                                Text("\(localization.localized("by")) \(cape.author)")
+                                Text("\(String(localized:"by")) \(cape.author)")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
@@ -70,7 +69,7 @@ struct CapePreviewPanel: View {
 
                 // Bottom: Cursor count
                 HStack {
-                    Text("\(cape.cursorCount) \(cape.cursorCount == 1 ? localization.localized("cursor") : localization.localized("cursors"))")
+                    Text("\(cape.cursorCount) \(cape.cursorCount == 1 ? String(localized:"cursor") : String(localized:"cursors"))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -111,10 +110,9 @@ struct CapePreviewPanel: View {
 // MARK: - Applied Badge
 
 struct AppliedBadge: View {
-    @Environment(LocalizationManager.self) private var localization
 
     var body: some View {
-        Label(localization.localized("Applied"), systemImage: "checkmark.circle.fill")
+        Label(String(localized:"Applied"), systemImage: "checkmark.circle.fill")
             .font(.caption2)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -129,7 +127,6 @@ struct CursorZoomOverlay: View {
     let namespace: Namespace.ID
     let onDismiss: () -> Void
     var showHotspot: Bool = false
-    @Environment(LocalizationManager.self) private var localization
 
     @State private var showDetails = false
     @State private var showAnimatedCursor = false
@@ -171,7 +168,7 @@ struct CursorZoomOverlay: View {
                             .foregroundStyle(.secondary)
 
                         if cursor.frameCount > 1 {
-                            Text("\(cursor.frameCount) \(localization.localized("frames"))")
+                            Text("\(cursor.frameCount) \(String(localized:"frames"))")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }
@@ -331,6 +328,5 @@ struct CursorPreviewCell: View {
 #Preview {
     CapePreviewPanel(cape: CursorLibrary(name: "Preview Cape", author: "Test"))
         .environment(AppState.shared)
-        .environment(LocalizationManager.shared)
         .frame(width: 500, height: 400)
 }
