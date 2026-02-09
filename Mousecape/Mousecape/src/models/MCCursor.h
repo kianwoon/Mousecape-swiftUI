@@ -33,7 +33,7 @@ extern MCCursorScale cursorScaleForScale(CGFloat scale);
 + (nullable MCCursor *)cursorWithDictionary:(NSDictionary *)dict ofVersion:(CGFloat)version;
 - (nullable id)initWithCursorDictionary:(NSDictionary *)dict ofVersion:(CGFloat)version;
 
-- (void)setRepresentation:(NSImageRep *)imageRep forScale:(MCCursorScale)scale;
+- (void)setRepresentation:(nullable NSImageRep *)imageRep forScale:(MCCursorScale)scale;
 - (void)removeRepresentationForScale:(MCCursorScale)scale;
 - (void)addFrame:(NSImageRep *)frame forScale:(MCCursorScale)scale;
 

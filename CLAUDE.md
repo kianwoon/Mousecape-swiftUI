@@ -63,8 +63,11 @@ MCLibraryController
 
 - **CGSInternal/** - 私有 CoreGraphics API 头文件（CGSCursor.h 是关键）
 - **apply.m** - 通过 `CGSRegisterCursorWithImages()` 注册光标
-- **backup.m/restore.m** - 备份和恢复原始系统光标
+- **backup.m/restore.m** - 备份和恢复原始系统光标，使用 `MCEnumerateAllCursorIdentifiers()` 遍历所有光标
 - **listen.m** - 辅助守护进程的会话变化监听器
+- **MCDefs.h/m** - 共享常量（`MCMaxFrameCount`、`MCMaxImportSize`、`MCMaxHotspotValue`）和工具函数
+
+**Nullability：** 所有 ObjC 头文件均已添加 `NS_ASSUME_NONNULL_BEGIN/END` 注解，Swift 桥接时无需多余的 Optional 处理。
 
 ### 使用的关键私有 API
 

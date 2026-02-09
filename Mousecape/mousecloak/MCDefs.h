@@ -34,11 +34,11 @@
 #define WHITE   "\033[37m"      /* White */
 #define BOLD    "\033[1m"
 
-extern NSString *defaultCursors[];
+NS_ASSUME_NONNULL_BEGIN
+
+extern NSString * _Nullable defaultCursors[];
 extern NSString *MCErrorDomain;
 extern NSDictionary *cursorNameMap;
-
-NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_ENUM(NSInteger, MCErrorCode) {
     MCErrorInvalidCapeCode = -1,
@@ -98,6 +98,9 @@ extern BOOL MCCursorIsPointer(NSString *identifier);
 extern NSArray<NSString *> *MCArrowSynonyms(void);
 // Returns all known names the system may use for the I-beam (text) cursor on this OS version
 extern NSArray<NSString *> *MCIBeamSynonyms(void);
+
+/// Enumerate all cursor identifiers: default cursors + Arrow synonyms + IBeam synonyms
+extern void MCEnumerateAllCursorIdentifiers(void (NS_NOESCAPE ^block)(NSString *identifier));
 
 NS_ASSUME_NONNULL_END
 
