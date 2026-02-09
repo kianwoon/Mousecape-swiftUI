@@ -1132,14 +1132,13 @@ struct CursorPreviewDropZone: View {
 
         // Downsample frames to maximum 24 if needed (system limit)
         let maxFrameCount = 24
-        let originalFrameCount = frames.count
         if frames.count > maxFrameCount {
+            let originalFrameCount = frames.count
             let downsampledFrames = downsampleFrames(frames, targetCount: maxFrameCount)
             debugLog("GIF downsampled: \(originalFrameCount) → \(downsampledFrames.count) frames")
             frames = downsampledFrames
-            // Adjust duration to maintain overall animation timing
-            let durationMultiplier = Double(originalFrameCount) / Double(maxFrameCount)
-            totalDuration *= durationMultiplier
+            // totalDuration already represents the correct total animation time;
+            // dividing by the new frame count below gives the correct per-frame duration.
         }
 
         // Calculate average frame duration
