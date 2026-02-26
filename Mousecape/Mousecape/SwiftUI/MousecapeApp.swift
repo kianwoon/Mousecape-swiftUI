@@ -82,6 +82,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         windowDelegate?.startObservingDirtyState()
     }
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Intercept file open events BEFORE SwiftUI creates new windows
+        NSAppleEventManager.shared().setEventHandler(
+            self,
+            andSelector: #selector(handleOpenDocumentEvent(_:withReplyEvent:)),
+            forEventClass: AEEventClass(kCoreEventClass),
+            andEventID: AEEventID(kAEOpenDocuments)
+        )
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Check and repair Helper asynchronously to avoid blocking UI
         Task {
@@ -104,6 +114,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         appState.applyCape(cape)
                     }
                 }
+            }
+        }
+    }
+
+    @objc private func handleOpenDocumentEvent(_ event: NSAppleEventDescriptor, withReplyEvent reply: NSAppleEventDescriptor) {
+        guard let descriptorList = event.paramDescriptor(forKeyword: keyDirectObject) else { return }
+
+        var capeURLs: [URL] = []
+        for i in 1...descriptorList.numberOfItems {
+            guard let descriptor = descriptorList.atIndex(i),
+                  let urlString = descriptor.stringValue,
+                  let url = URL(string: urlString),
+                  url.pathExtension.lowercased() == "cape" else { continue }
+            capeURLs.append(url)
+        }
+
+        guard !capeURLs.isEmpty else { return }
+
+        Task { @MainActor in
+            let appState = AppState.shared
+            appState.currentPage = .home
+            for url in capeURLs {
+                appState.importCape(from: url)
             }
         }
     }
