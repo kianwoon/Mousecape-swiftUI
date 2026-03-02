@@ -2506,6 +2506,7 @@
     },
     "undo.action.addCursor" : {
       "comment" : "Add Cursor Undo Title",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2523,6 +2524,7 @@
     },
     "undo.action.prefix" : {
       "comment" : "Undo Change Prefix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2540,6 +2542,7 @@
     },
     "undo.action.removeCursor" : {
       "comment" : "Remove Cursor Undo Title",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2557,6 +2560,7 @@
     },
     "undo.property.author" : {
       "comment" : "Undo change cape author suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2574,6 +2578,7 @@
     },
     "undo.property.cursorType" : {
       "comment" : "Undo change cursor type suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2591,6 +2596,7 @@
     },
     "undo.property.dimensions" : {
       "comment" : "Undo change cursor image dimensions suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2608,6 +2614,7 @@
     },
     "undo.property.frameCount" : {
       "comment" : "Undo change cursor frame count suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2625,6 +2632,7 @@
     },
     "undo.property.frameDuration" : {
       "comment" : "Undo change cursor frame duraiton suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2642,6 +2650,7 @@
     },
     "undo.property.hidpi" : {
       "comment" : "Undo change cape hidpi suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2659,6 +2668,7 @@
     },
     "undo.property.hotspot" : {
       "comment" : "Undo change cursor hotspot suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2676,6 +2686,7 @@
     },
     "undo.property.identifier" : {
       "comment" : "Undo change cape identifier suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2693,6 +2704,7 @@
     },
     "undo.property.name" : {
       "comment" : "Undo change cape name suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2710,6 +2722,7 @@
     },
     "undo.property.rep1x" : {
       "comment" : "Undo change cursor 1x rep suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2727,6 +2740,7 @@
     },
     "undo.property.rep2x" : {
       "comment" : "Undo change cursor 10x rep suffix\nUndo change cursor 2x rep suffix\nUndo change cursor 5x rep suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2744,6 +2758,7 @@
     },
     "undo.property.version" : {
       "comment" : "Undo change cape version suffix",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

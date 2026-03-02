@@ -22,7 +22,6 @@ extern NSString *const MCLibraryDidSaveNotificationName;
 @property (nonatomic, copy)   NSNumber *version;
 @property (nonatomic, copy, nullable)   NSURL    *fileURL;
 @property (nonatomic, weak, nullable)   MCLibraryController *library;
-@property (nonatomic, readonly) NSUndoManager *undoManager;
 @property (nonatomic, readonly, getter=isDirty) BOOL dirty;
 @property (nonatomic, assign, getter = isInCloud) BOOL inCloud;
 @property (nonatomic, assign, getter = isHiDPI)   BOOL hiDPI;

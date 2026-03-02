@@ -14,6 +14,9 @@ final class Cursor: Identifiable, Hashable {
     let id: UUID
     private let objcCursor: MCCursor
 
+    /// Cached image to avoid repeated NSImage allocation from imageWithAllReps
+    private var _cachedImage: NSImage?
+
     // MARK: - Properties (bridged from ObjC)
 
     var identifier: String {
@@ -78,9 +81,19 @@ final class Cursor: Identifiable, Hashable {
 
     // MARK: - Image Access
 
-    /// Get the full image with all representations
+    /// Get the full image with all representations (cached)
     var image: NSImage? {
-        objcCursor.imageWithAllReps()
+        if let cached = _cachedImage {
+            return cached
+        }
+        let img = objcCursor.imageWithAllReps()
+        _cachedImage = img
+        return img
+    }
+
+    /// Invalidate cached image (call after image data changes)
+    func invalidateImageCache() {
+        _cachedImage = nil
     }
 
     /// Get representation at specific scale
@@ -97,6 +110,7 @@ final class Cursor: Identifiable, Hashable {
             return
         }
         objcCursor.setRepresentation(imageRep, for: mcScale)
+        invalidateImageCache()
     }
 
     /// Remove representation at specific scale
@@ -105,6 +119,7 @@ final class Cursor: Identifiable, Hashable {
             return
         }
         objcCursor.removeRepresentation(for: mcScale)
+        invalidateImageCache()
     }
 
     /// Check if a representation exists for scale

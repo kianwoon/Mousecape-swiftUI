@@ -21,6 +21,7 @@ struct AnimatingCursorView: View {
     @State private var animationTimer: Timer?
     @State private var cachedFrames: [NSImage] = []
     @AppStorage("showPreviewAnimations") private var showPreviewAnimations = true
+    @Environment(AppState.self) private var appState
 
     var body: some View {
         GeometryReader { geometry in
@@ -60,6 +61,7 @@ struct AnimatingCursorView: View {
         }
         .onDisappear {
             stopAnimation()
+            cachedFrames = []
         }
         .onChange(of: cursor.frameCount) { _, _ in
             buildFrameCache()
@@ -84,6 +86,13 @@ struct AnimatingCursorView: View {
             } else {
                 stopAnimation()
                 currentFrame = 0
+            }
+        }
+        .onChange(of: appState.isWindowVisible) { _, newValue in
+            if newValue {
+                startAnimation()
+            } else {
+                stopAnimation()
             }
         }
         .accessibilityLabel("Animated cursor preview")
@@ -138,7 +147,7 @@ struct AnimatingCursorView: View {
     }
 
     private func startAnimation() {
-        guard cursor.frameCount > 1, cursor.frameDuration > 0, showPreviewAnimations else {
+        guard cursor.frameCount > 1, cursor.frameDuration > 0, showPreviewAnimations, appState.isWindowVisible else {
             currentFrame = 0
             return
         }

@@ -13,11 +13,9 @@ NSString *const MCLibraryWillSaveNotificationName = @"MCLibraryWillSave";
 NSString *const MCLibraryDidSaveNotificationName = @"MCLibraryDidSave";
 
 @interface MCCursorLibrary ()
-@property (nonatomic, strong) NSUndoManager *undoManager;
 @property (nonatomic, readwrite, strong) NSMutableSet *cursors;
 @property (nonatomic, assign) NSUInteger changeCount;
 @property (nonatomic, assign) NSUInteger lastChangeCount;
-@property (nonatomic, strong) NSArray *observers;
 @property (nonatomic, copy) NSString *oldIdentifier;
 
 - (BOOL)_readFromDictionary:(NSDictionary *)dictionary;
@@ -28,37 +26,10 @@ NSString *const MCLibraryDidSaveNotificationName = @"MCLibraryDidSave";
 
 - (void)startObservingCursor:(MCCursor *)cursor;
 - (void)stopObservingCursor:(MCCursor *)cursor;
-
-+ (NSDictionary<NSString *, NSString *> *)cursorUndoProperties;
-+ (NSDictionary<NSString *, NSString *> *)undoProperties;
 @end
 
 @implementation MCCursorLibrary
 @dynamic dirty;
-
-+ (NSDictionary<NSString *, NSString *> *)undoProperties {
-    return @{
-        @"identifier": NSLocalizedString(@"undo.property.identifier", @"Undo change cape identifier suffix"),
-        @"name":       NSLocalizedString(@"undo.property.name", @"Undo change cape name suffix"),
-        @"author":     NSLocalizedString(@"undo.property.author", @"Undo change cape author suffix"),
-        @"hiDPI":      NSLocalizedString(@"undo.property.hidpi", @"Undo change cape hidpi suffix"),
-        @"version":    NSLocalizedString(@"undo.property.version", @"Undo change cape version suffix")
-    };
-}
-
-+ (NSDictionary<NSString *, NSString *> *)cursorUndoProperties {
-    return @{
-        @"identifier"   : NSLocalizedString(@"undo.property.cursorType", @"Undo change cursor type suffix"),
-        @"frameDuration": NSLocalizedString(@"undo.property.frameDuration", @"Undo change cursor frame duraiton suffix"),
-        @"frameCount"   : NSLocalizedString(@"undo.property.frameCount", @"Undo change cursor frame count suffix"),
-        @"size"         : NSLocalizedString(@"undo.property.dimensions", @"Undo change cursor image dimensions suffix"),
-        @"hotSpot"      : NSLocalizedString(@"undo.property.hotspot", @"Undo change cursor hotspot suffix"),
-        @"cursorRep100" : NSLocalizedString(@"undo.property.rep1x", @"Undo change cursor 1x rep suffix"),
-        @"cursorRep200" : NSLocalizedString(@"undo.property.rep2x", "Undo change cursor 2x rep suffix"),
-        @"cursorRep500" : NSLocalizedString(@"undo.property.rep2x", "Undo change cursor 5x rep suffix"),
-        @"cursorRep1000": NSLocalizedString(@"undo.property.rep2x", "Undo change cursor 10x rep suffix")
-    };
-}
 
 + (MCCursorLibrary *)cursorLibraryWithContentsOfFile:(NSString *)path {
     return [[MCCursorLibrary alloc] initWithContentsOfFile:path];
@@ -106,24 +77,6 @@ NSString *const MCLibraryDidSaveNotificationName = @"MCLibraryDidSave";
 
 - (instancetype)init {
     if ((self = [super init])) {
-        self.undoManager = [[NSUndoManager alloc] init];
-        
-        NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-        __weak typeof(self) weakSelf = self;
-        id ob1 = [center addObserverForName:NSUndoManagerDidCloseUndoGroupNotification object:self.undoManager queue:nil usingBlock:^(NSNotification *note) {
-            [weakSelf updateChangeCount:NSChangeDone];
-        }];
-        
-        id ob2 = [center addObserverForName:NSUndoManagerDidUndoChangeNotification object:self.undoManager queue:nil usingBlock:^(NSNotification *note) {
-            [weakSelf updateChangeCount:NSChangeUndone];
-        }];
-        
-        id ob3 = [center addObserverForName:NSUndoManagerDidRedoChangeNotification object:self.undoManager queue:nil usingBlock:^(NSNotification *note) {
-            [weakSelf updateChangeCount:NSChangeRedone];
-        }];
-        
-        self.observers = @[ob1, ob2, ob3];
-        
         self.name           = NSLocalizedString(@"cape.default.unnamed", "Default New Cape Name");
         self.author         = NSUserName();
         self.hiDPI          = YES;
@@ -135,22 +88,20 @@ NSString *const MCLibraryDidSaveNotificationName = @"MCLibraryDidSave";
         self.lastChangeCount = 0;
         [self startObservingProperties];
     }
-    
+
     return self;
 }
 
 - (instancetype)copyWithZone:(NSZone *)zone {
     MCCursorLibrary *lib = [[MCCursorLibrary allocWithZone:zone] initWithCursors:self.cursors];
-    
-    [lib.undoManager disableUndoRegistration];
+
     lib.name             = self.name;
     lib.author           = self.author;
     lib.hiDPI            = self.hiDPI;
     lib.inCloud          = self.inCloud;
     lib.version          = self.version;
     lib.identifier       = [self.identifier stringByAppendingFormat:@".%f", [NSDate timeIntervalSinceReferenceDate]];
-    [lib.undoManager enableUndoRegistration];
-    
+
     return lib;
 }
 
@@ -170,10 +121,9 @@ NSString *const MCLibraryDidSaveNotificationName = @"MCLibraryDidSave";
     for (MCCursor *cursor in self.cursors) {
         [self stopObservingCursor:cursor];
     }
-    
+
     self.cursors = [NSMutableSet set];
-    [self.undoManager disableUndoRegistration];
-    
+
     NSNumber *minimumVersion  = dictionary[MCCursorDictionaryMinimumVersionKey];
     NSNumber *version         = dictionary[MCCursorDictionaryVersionKey];
     NSDictionary *cursorDicts = dictionary[MCCursorDictionaryCursorsKey];
@@ -183,32 +133,28 @@ NSString *const MCLibraryDidSaveNotificationName = @"MCLibraryDidSave";
     NSString *identifier      = dictionary[MCCursorDictionaryIdentifierKey];
     NSString *capeName        = dictionary[MCCursorDictionaryCapeNameKey];
     NSNumber *capeVersion     = dictionary[MCCursorDictionaryCapeVersionKey];
-    
+
     self.name       = capeName;
     self.version    = capeVersion;
     self.author     = author;
     self.identifier = identifier;
     self.hiDPI      = hiDPI.boolValue;
     self.inCloud    = cloud.boolValue;
-    
-    if (!self.identifier) {
-        [self.undoManager enableUndoRegistration];
 
+    if (!self.identifier) {
         NSLog(@"cannot make library from dictionary with no identifier");
         return NO;
     }
-    
+
     CGFloat doubleVersion = version.doubleValue;
-    
+
     if (minimumVersion.doubleValue > MCCursorParserVersion) {
-        [self.undoManager enableUndoRegistration];
         return NO;
     }
-    
+
     [self.cursors removeAllObjects];
     [self addCursorsFromDictionary:cursorDicts ofVersion:doubleVersion];
-    
-    [self.undoManager enableUndoRegistration];
+
     return YES;
 }
 
@@ -217,60 +163,50 @@ NSString *const MCLibraryDidSaveNotificationName = @"MCLibraryDidSave";
     for (MCCursor *cursor in self.cursors) {
         [self stopObservingCursor:cursor];
     }
-    
-    for (id observer in self.observers) {
-        [NSNotificationCenter.defaultCenter removeObserver:observer];
-    }
 }
 
 const char MCCursorLibraryPropertiesContext;
 - (void)startObservingProperties {
-    for (NSString *key in self.class.undoProperties) {
+    NSArray *properties = @[@"identifier", @"name", @"author", @"hiDPI", @"version"];
+    for (NSString *key in properties) {
         [self addObserver:self forKeyPath:key options:NSKeyValueObservingOptionOld context:(void*)&MCCursorLibraryPropertiesContext];
     }
 }
 
 - (void)stopObservingProperties {
-    for (NSString *key in self.class.undoProperties) {
+    NSArray *properties = @[@"identifier", @"name", @"author", @"hiDPI", @"version"];
+    for (NSString *key in properties) {
         [self removeObserver:self forKeyPath:key context:(void *)&MCCursorLibraryPropertiesContext];
     }
 }
 
 const char MCCursorPropertiesContext;
 - (void)startObservingCursor:(MCCursor *)cursor {
-    for (NSString *key in self.class.cursorUndoProperties) {
+    NSArray *properties = @[@"identifier", @"frameDuration", @"frameCount", @"size", @"hotSpot"];
+    for (NSString *key in properties) {
         [cursor addObserver:self forKeyPath:key options:NSKeyValueObservingOptionOld context:(void *)&MCCursorPropertiesContext];
     }
 }
 
 - (void)stopObservingCursor:(MCCursor *)cursor {
-    for (NSString *key in self.class.cursorUndoProperties) {
+    NSArray *properties = @[@"identifier", @"frameDuration", @"frameCount", @"size", @"hotSpot"];
+    for (NSString *key in properties) {
         [cursor removeObserver:self forKeyPath:key context:(void *)&MCCursorPropertiesContext];
     }
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
     if (context == &MCCursorLibraryPropertiesContext || context == &MCCursorPropertiesContext) {
-        NSString *decamelized = NULL;
-        if (context == &MCCursorLibraryPropertiesContext) {
-            decamelized = [self.class undoProperties][keyPath];
-        } else {
-            decamelized = [self.class cursorUndoProperties][keyPath];
-        }
-        
-        id oldValue = change[NSKeyValueChangeOldKey];
-        if ([oldValue isKindOfClass:[NSNull class]])
-            oldValue = nil;
-        
-        [[self.undoManager prepareWithInvocationTarget: object] setValue:oldValue forKeyPath:keyPath];
-        
-        if (!self.undoManager.isUndoing) {
-            [self.undoManager setActionName:[[NSLocalizedString(@"undo.action.prefix", "Undo Change Prefix") stringByAppendingString:decamelized] capitalizedString]];
-        }
+        [self updateChangeCount:NSChangeDone];
 
         if ([keyPath isEqualToString:@"identifier"]) {
+            id oldValue = change[NSKeyValueChangeOldKey];
+            if ([oldValue isKindOfClass:[NSNull class]])
+                oldValue = nil;
             self.oldIdentifier = oldValue;
         }
+    } else {
+        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
     }
 }
 
@@ -297,14 +233,9 @@ const char MCCursorPropertiesContext;
         // since NSSet just silently skips items it already has
         return;
     }
-    
+
     NSSet *change = [NSSet setWithObject:cursor];
-    
-    [[self.undoManager prepareWithInvocationTarget:self] removeCursor:cursor];
-    if (!self.undoManager.isUndoing) {
-        [self.undoManager setActionName:NSLocalizedString(@"undo.action.addCursor", "Add Cursor Undo Title")];
-    }
-    
+
     [self willChangeValueForKey:@"cursors" withSetMutation:NSKeyValueUnionSetMutation usingObjects:change];
     [self.cursors addObject:cursor];
     [self startObservingCursor:cursor];
@@ -313,12 +244,7 @@ const char MCCursorPropertiesContext;
 
 - (void)removeCursor:(MCCursor *)cursor {
     NSSet *change = [NSSet setWithObject:cursor];
-    
-    [[self.undoManager prepareWithInvocationTarget:self] addCursor:cursor];
-    if (!self.undoManager.isUndoing) {
-        [self.undoManager setActionName:NSLocalizedString(@"undo.action.removeCursor", @"Remove Cursor Undo Title")];
-    }
-    
+
     [self willChangeValueForKey:@"cursors" withSetMutation:NSKeyValueMinusSetMutation usingObjects:change];
     [self.cursors removeObject:cursor];
     [self stopObservingCursor:cursor];
@@ -477,12 +403,15 @@ const char MCCursorPropertiesContext;
 }
 
 - (void)revertToSaved {
-    while (self.isDirty) {
-        [self.undoManager undo];
+    // Reload from file if available
+    if (self.fileURL) {
+        NSDictionary *dictionary = [NSDictionary dictionaryWithContentsOfURL:self.fileURL];
+        if (dictionary) {
+            [self _readFromDictionary:dictionary];
+        }
     }
-    
+
     [self updateChangeCount:NSChangeCleared];
-    [self.undoManager removeAllActions];
 }
 
 - (BOOL)isDirty {

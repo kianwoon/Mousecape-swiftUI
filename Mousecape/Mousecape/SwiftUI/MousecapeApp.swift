@@ -177,7 +177,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     func showMainWindow() {
+        debugLog("Exiting accessory mode - showing main window")
         NSApp.setActivationPolicy(.regular)
+
+        // Restore state if capes were cleared (window was destroyed)
+        if AppState.shared.capes.isEmpty {
+            AppState.shared.restoreStateAfterReopen()
+        }
+
         // 优先用保存的引用，fallback 到 NSApp.windows 搜索
         let window = mainWindow ?? NSApp.windows.first(where: { $0.canBecomeMain })
         if let window = window {
@@ -185,8 +192,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.makeKey()
         }
         NSApp.activate(ignoringOtherApps: true)
-        // Resume timer polling when window is shown
+        // Resume timer polling and animations when window is shown
         windowDelegate?.startObservingDirtyState()
+        AppState.shared.isWindowVisible = true
+        debugLog("Main window shown, animations resumed")
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -278,16 +287,26 @@ class WindowDelegate: NSObject, NSWindowDelegate {
             return false
         }
 
-        // Hide window instead of closing — keeps it alive for menu bar reopen
+        // Hide window and clear memory, but don't actually close it
+        // This prevents SwiftUI from keeping the view tree alive
         MainActor.assumeIsolated {
-            // Stop timer polling while window is hidden to reduce CPU usage
+            debugLog("Entering accessory mode - hiding main window")
+            // Stop timer polling before window hides
             AppDelegate.shared?.windowDelegate?.stopObserving()
+            appState.isWindowVisible = false
+
+            // Clear all memory caches aggressively
+            appState.clearMemoryCaches()
+
+            // Hide the window
             sender.orderOut(nil)
+
             DispatchQueue.main.async {
                 NSApp.setActivationPolicy(.accessory)
+                debugLog("Accessory mode active - window hidden, memory cleared")
             }
         }
-        return false
+        return false  // Don't close, just hide
     }
 }
 

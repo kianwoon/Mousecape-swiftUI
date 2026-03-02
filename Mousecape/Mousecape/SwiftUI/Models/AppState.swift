@@ -95,6 +95,9 @@ final class AppState: @unchecked Sendable {
     var lastError: Error?
     var showError: Bool = false
 
+    /// Window visibility state (for pausing animations when hidden)
+    var isWindowVisible: Bool = true
+
     // MARK: - Undo/Redo
 
     /// Undo stack - stores paired closures to undo/redo changes
@@ -474,6 +477,129 @@ final class AppState: @unchecked Sendable {
     func clearUndoHistory() {
         undoStack.removeAll()
         redoStack.removeAll()
+    }
+
+    /// Clear all memory caches for background mode (aggressive cleanup)
+    func clearMemoryCaches() {
+        let memoryBefore = reportMemoryUsage()
+        debugLog("Clearing memory caches for background mode - Memory before: \(memoryBefore) MB")
+
+        // Save essential state before clearing
+        let selectedIdentifier = selectedCape?.identifier
+        let appliedIdentifier = appliedCape?.identifier
+
+        debugLog("Clearing \(capes.count) capes with total \(capes.reduce(0) { $0 + $1.cursorCount }) cursors")
+
+        // Clear all cursor image caches
+        for cape in capes {
+            cape.invalidateCursorCache()
+            for cursor in cape.cursors {
+                cursor.invalidateImageCache()
+            }
+        }
+
+        // Aggressively clear the entire capes array to release ObjC objects
+        // This releases all MCCursorLibrary and MCCursor objects and their image data
+        capes.removeAll()
+        selectedCape = nil
+        appliedCape = nil
+
+        // Clear ALL edit state to release view references
+        isEditing = false
+        editingCape = nil
+        editingSelectedCursor = nil
+        showCapeInfo = false
+        capeToDelete = nil
+
+        // Reset to home page to clear navigation stack
+        currentPage = .home
+
+        // Clear all dialog states
+        showAddCursorSheet = false
+        showDeleteCursorConfirmation = false
+        showDeleteConfirmation = false
+        showDiscardConfirmation = false
+        showDuplicateFilenameError = false
+        showValidationError = false
+        showImageImportWarning = false
+        showImportResult = false
+        showOperationResult = false
+        showError = false
+        lastError = nil
+
+        // Clear undo/redo history
+        clearUndoHistory()
+
+        // Store identifiers for restoration on window reopen
+        if let selected = selectedIdentifier {
+            UserDefaults.standard.set(selected, forKey: "lastSelectedCapeIdentifier")
+        }
+        if let applied = appliedIdentifier {
+            UserDefaults.standard.set(applied, forKey: "lastAppliedCapeIdentifier")
+        }
+
+        // CRITICAL: Clear libraryController to release all ObjC cape objects
+        // This is the key to releasing the 27+ MB of CFData held by MCLibraryController
+        libraryController = nil
+        debugLog("LibraryController released")
+
+        // Force refresh triggers to update views
+        capeListRefreshTrigger += 1
+        cursorListRefreshTrigger += 1
+        capeInfoRefreshTrigger += 1
+
+        // Force memory cleanup with multiple passes
+        for _ in 0..<3 {
+            autoreleasepool {
+                // Empty pool to release autoreleased objects
+            }
+        }
+
+        let memoryAfter = reportMemoryUsage()
+        debugLog("Memory caches cleared - Memory after: \(memoryAfter) MB (freed: \(memoryBefore - memoryAfter) MB)")
+    }
+
+    /// Report current memory usage in MB
+    private func reportMemoryUsage() -> Double {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        if kerr == KERN_SUCCESS {
+            let usedMB = Double(info.resident_size) / 1024.0 / 1024.0
+            return usedMB
+        }
+        return 0
+    }
+
+    /// Restore state after window reopens (called from showMainWindow)
+    func restoreStateAfterReopen() {
+        debugLog("Restoring state after window reopen")
+
+        // Recreate libraryController if it was cleared
+        if libraryController == nil {
+            setupLibraryController()
+            debugLog("LibraryController recreated")
+        }
+
+        // Reload capes from disk
+        loadCapes()
+
+        // Restore selections
+        if let selectedId = UserDefaults.standard.string(forKey: "lastSelectedCapeIdentifier") {
+            selectedCape = capes.first { $0.identifier == selectedId }
+            UserDefaults.standard.removeObject(forKey: "lastSelectedCapeIdentifier")
+        }
+
+        if let appliedId = UserDefaults.standard.string(forKey: "lastAppliedCapeIdentifier") {
+            appliedCape = capes.first { $0.identifier == appliedId }
+            UserDefaults.standard.removeObject(forKey: "lastAppliedCapeIdentifier")
+        }
+
+        debugLog("State restored - \(capes.count) capes loaded")
     }
 
     /// Request to close edit mode (may show confirmation if dirty)
