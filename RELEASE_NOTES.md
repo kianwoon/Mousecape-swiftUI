@@ -4,6 +4,49 @@
 
 ## English
 
+### v1.1.0 - Major Architecture Update
+
+**This is a major update that improves launch-at-login functionality and reduces file sizes.**
+
+**New Features:**
+
+- **Rewritten Background Helper** — Launch-at-login helper has been completely rewritten with a menu bar icon
+  - Menu bar quick access shows your currently applied cursor theme name
+  - Quick actions: "Apply Cursor", "Reset Cursor", and "Open Mousecape"
+  - More reliable startup behavior and better system integration
+
+- **Simple/Advanced Edit Modes** — Choose your editing style
+  - Simple Mode: Edit cursors by Windows cursor groups (15 groups), changes apply to all related macOS cursor types automatically
+  - Advanced Mode: Edit each macOS cursor type individually for full control
+  - Switch between modes anytime via the toolbar
+
+- **Double-click to Open** — Double-click `.cape` files in Finder to open them directly in Mousecape
+
+- **Cape File Format 3.0** — Cape files now use HEIF image format, reducing file size by 60%
+  - **Compatibility Note:** Older versions of Mousecape may not be able to open cape files saved with v1.1.0. We recommend updating to the latest version.
+  - Existing cape files will continue to work and will be automatically upgraded to the new format when saved
+
+**Improvements:**
+
+- Faster command-line tool performance (~80% faster than before)
+- Better memory management and stability
+- Improved thread safety for smoother operation
+- Cleaner project configuration
+
+**Bug Fixes:**
+
+- Fixed various UI navigation issues
+- Fixed cursor state synchronization between main app and helper
+- Fixed security vulnerabilities
+- Improved compatibility with future macOS versions
+
+**Technical Notes:**
+
+- The old `mousecloakhelper` daemon is automatically removed on first launch
+- If you encounter any issues with launch-at-login, try toggling the setting off and on again in Settings
+
+---
+
 ### v1.0.4 - Features & Critical Fix
 
 **New Features:**
@@ -164,6 +207,50 @@ For normal use, download the regular version.
 <a id="中文"></a>
 
 ## 中文
+
+### v1.1.0 - 重大架构更新
+
+**这是一次重大更新，改进了开机启动功能并大幅减小文件体积。**
+
+**新功能：**
+
+- **重写后台助手** — 开机启动助手已完全重写，带有菜单栏图标
+  - 菜单栏快速访问可查看当前应用的光标主题名称
+  - 快速操作："应用光标"、"重置光标"和"打开 Mousecape"
+  - 更可靠的启动行为和更好的系统集成
+
+- **简易/高级编辑模式** — 选择你喜欢的编辑方式
+  - 简易模式：按 Windows 光标分组编辑（15 组），修改会自动应用到所有相关的 macOS 光标类型
+  - 高级模式：逐个编辑每个 macOS 光标类型，完全控制
+  - 随时通过工具栏切换模式
+
+- **双击打开** — 在访达中双击 `.cape` 文件即可直接在 Mousecape 中打开
+
+- **Cape 文件格式 3.0** — Cape 文件现在使用 HEIF 图像格式，文件体积减少 60%
+
+  - **兼容性说明：** 旧版本的 Mousecape 可能无法打开使用 v1.1.0 保存的 cape 文件。建议更新到最新版本。
+  - 现有的 cape 文件可以继续使用，保存时会自动升级到新格式
+
+**改进：**
+
+- 命令行工具性能提升约 80%
+- 更好的内存管理和稳定性
+- 改进线程安全性，运行更流畅
+- 更清晰的项目配置
+
+**Bug 修复：**
+
+- 修复多个界面导航问题
+- 修复主应用和助手之间的光标状态同步
+- 修复安全漏洞
+- 改进与未来 macOS 版本的兼容性
+
+**技术说明：**
+
+- 旧的 `mousecloakhelper` 守护进程会在首次启动时自动移除
+- 如果遇到开机启动问题，尝试在设置中关闭再打开该选项
+
+---
 
 ### v1.0.4 - 功能更新 & 重大修复
 

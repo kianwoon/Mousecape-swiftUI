@@ -29,6 +29,11 @@ xcodebuild -project Mousecape/Mousecape.xcodeproj -scheme Mousecape build
 xcodebuild -project Mousecape/Mousecape.xcodeproj -target mousecloak build
 ```
 
+**注意事项：**
+- 项目已移除未使用的 entitlements 文件（主应用和 Helper 的独立 entitlements 已删除）
+- 所有构建配置的版本号已统一为 1.1.0
+- DEBUG 构建会初始化日志系统，Release 构建仅输出到 stdout
+
 ## 架构
 
 ### 三个构建目标
@@ -103,7 +108,7 @@ CGSCopyRegisteredCursorImages() // 读取当前光标数据
 
 ```
 SwiftUI/
-├── MousecapeApp.swift（入口、MenuBarExtra 菜单栏、AppDelegate 登录启动检测与旧 Helper 迁移、窗口生命周期管理）
+├── MousecapeApp.swift（入口、AppDelegate 旧 Helper 迁移、窗口生命周期管理）
 ├── Models/
 │   ├── AppState.swift（@Observable 状态管理）
 │   ├── AppState+WindowsImport.swift（Windows 光标文件夹导入）
@@ -128,6 +133,13 @@ SwiftUI/
 └── Helpers/
     ├── AnimatingCursorView.swift
     └── GlassEffectContainer.swift
+
+MousecapeHelper/（独立后台助手）
+├── MousecapeHelperApp.swift（Helper 入口 + MenuBarExtra）
+├── MenuBarContentView.swift（菜单栏 UI + CursorState）
+├── HelperBridge.m（ObjC 桥接层）
+├── HelperDebugLog.swift（调试日志）
+└── MousecapeHelper-Bridging-Header.h（桥接头文件）
 ```
 
 **共享常量（CursorImageScaler.swift）：**
@@ -145,12 +157,36 @@ SwiftUI/
 **关键设计：**
 - **标准窗口行为：** 主应用始终使用 `.regular` 模式（有 Dock 图标），关闭窗口后程序正常退出
 - **Helper 独立运行：** MousecapeHelper 作为独立应用运行，提供菜单栏图标和开机启动功能
-- **XPC 通信：** 主应用通过 XPC 连接控制 Helper 的启动/停止和光标应用
+- **SMAppService 通信：** 主应用通过 `SMAppService.loginItem(identifier:)` 控制 Helper 的启动/停止
 - **用户控制：** 用户通过"Launch at Login"开关控制 Helper 的开机启动行为
-- **菜单栏唤起：** 用户点击 Helper 的菜单栏图标可唤起主应用窗口
+- **菜单栏唤起：** 用户点击 Helper 的菜单栏图标通过 `NSWorkspace.shared.open()` 唤起主应用窗口
 - **文件打开事件：** `handleOpenDocumentEvent` 使用 `MainActor.assumeIsolated` 同步执行（Apple Event handler 在主线程）
 - **主窗口引用：** `AppDelegate.mainWindow`（weak）在 `setupWindowDelegate` 时保存，避免每次通过 `NSApp.windows` 查找
 - **WindowDelegate timer：** `setupWindowDelegate` 调用前先 `stopObserving()` 清理旧 timer，防止重复调用时 timer 泄漏
+
+### MousecapeHelper 架构（v1.1.0 新增）
+
+**核心文件：**
+- `MousecapeHelperApp.swift` - Helper 应用入口，使用 `MenuBarExtra` 提供菜单栏图标
+- `MenuBarContentView.swift` - 菜单栏 UI，显示当前应用的光标主题名称
+- `HelperBridge.m` - ObjC 桥接层，调用 mousecloak 函数（`applyCapeAtPath`, `resetCursors`）
+- `HelperDebugLog.swift` - 调试日志辅助函数
+
+**功能特性：**
+1. **自动启动：** 通过 `SMAppService.loginItem` 注册为系统登录项，开机自动启动
+2. **会话监听：** 启动时调用 `startSessionMonitor()`，监听用户会话变化和显示器重配置，自动重新应用光标
+3. **菜单栏常驻：** 提供菜单栏图标，显示当前应用的光标主题名称
+4. **快速操作：** 菜单栏提供"打开 Mousecape"、"应用光标"、"重置光标"、"退出 Helper"等操作
+5. **状态同步：** 通过 `DistributedNotificationCenter` 和 `CFNotificationCenter` 监听主应用的光标变化，实时更新菜单栏显示
+
+**线程安全：**
+- `CursorState` 使用 `@MainActor` 标记，确保所有状态更新在主线程
+- CFNotificationCenter 回调使用 `Task { @MainActor in }` 切换到主线程
+- DistributedNotificationCenter 使用 `queue: .main` 确保回调在主线程
+
+**旧版本迁移：**
+- 主应用首次启动时自动检测并注销旧的 `com.sdmj76.mousecloakhelper` LaunchAgent
+- 使用 `launchctl bootout` 命令移除旧守护进程
 
 ### 编辑模式：简易模式 / 高级模式
 
@@ -640,7 +676,23 @@ DebugLogger.clearAllLogs()         // 清除所有日志
 
 ## CI/CD
 
-项目使用 GitHub Actions 进行持续集成，配置文件位于 `.github/workflows/`。
+项目使用 GitHub Actions 进行持续集成，配置文件位于 `.github/workflows/build.yml`。
+
+**构建环境：**
+- 运行环境：macOS 15
+- Xcode 版本：自动选择最新的 Xcode 26.x
+- 构建配置：Release 和 Debug 并行构建
+
+**关键配置：**
+1. **Xcode 版本选择：** 自动检测并选择 `/Applications/Xcode_26.*.app` 中最新版本
+2. **SwiftBridging 冲突修复：** 移除默认 `/Applications/Xcode.app` 符号链接，避免 toolchain 路径冲突导致 SwiftBridging 模块重复定义错误
+3. **缓存优化：** 缓存 DerivedData 和 SwiftPM 缓存，加速构建
+4. **并发控制：** 同一分支的构建会取消之前的运行中任务
+
+**构建产物：**
+- Release 配置：`Mousecape.app.zip`
+- Debug 配置：`Mousecape_debug.app.zip`
+- 保留时间：7 天
 
 ## 版本号修改
 
@@ -648,7 +700,7 @@ DebugLogger.clearAllLogs()         // 清除所有日志
 
 1. **Xcode 项目配置**（主要位置，其他文件引用此值）
    - `Mousecape/Mousecape.xcodeproj/project.pbxproj`
-   - 搜索 `MARKETING_VERSION`，共 4 处（Debug、Debug-Dev、Release、Release-Dev）
+   - 搜索 `MARKETING_VERSION`，统一修改所有构建配置
 
 2. **主应用 Info.plist**
    - `Mousecape/Mousecape/Mousecape-Info.plist`
@@ -657,3 +709,9 @@ DebugLogger.clearAllLogs()         // 清除所有日志
 3. **设置页面 fallback 版本号**
    - `Mousecape/Mousecape/SwiftUI/Views/SettingsView.swift`
    - 搜索 `Mousecape v`，修改 else 分支中的备用版本号
+
+## 版本历史
+
+- **v1.1.0** (2026-03-07) - 添加 MousecapeHelper 独立后台助手，重构开机启动架构，修复线程安全问题
+- **v1.0.3** (2026-03-03) - 修复 Windows 动画光标导入，改进多编码支持
+- **v1.0.0** (2026-03-01) - Cape 图像格式迁移至 HEIF，文件大小减少 60%
