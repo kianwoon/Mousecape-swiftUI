@@ -79,6 +79,11 @@ final class AppState: @unchecked Sendable {
     var showValidationError: Bool = false
     var validationErrorMessage: String = ""
 
+    /// Validation warning state (with option to continue)
+    var showValidationWarning: Bool = false
+    var validationWarningMessage: String = ""
+    var validationWarningAction: (() -> Void)?
+
     /// Image import warning state (for non-square images)
     var showImageImportWarning: Bool = false
     var imageImportWarningMessage: String = ""
@@ -349,9 +354,45 @@ final class AppState: @unchecked Sendable {
         // Get cape name from filename (without extension)
         let capeName = url.deletingPathExtension().lastPathComponent
 
-        let error = libraryController.importCape(at: url)
+        // First, try to load the cape to validate it
+        guard let tempLibrary = MCCursorLibrary(contentsOf: url) else {
+            validationErrorMessage = String(localized: "Failed to read cape file.")
+            showValidationError = true
+            return
+        }
+
+        // Check for validation issues
+        if let validationError = tempLibrary.validateCape() as NSError? {
+            // Show warning dialog with option to continue
+            validationWarningMessage = validationError.localizedDescription
+            if let recoverySuggestion = validationError.localizedRecoverySuggestion {
+                validationWarningMessage += "\n\n\(recoverySuggestion)"
+            }
+            validationWarningMessage += "\n\n\(String(localized: "validation.continueWarning"))"
+
+            // Store the action to execute if user chooses to continue
+            validationWarningAction = { [weak self] in
+                self?.forceImportCapeFromURL(url, capeName: capeName)
+            }
+            showValidationWarning = true
+        } else {
+            // No validation issues, proceed with import
+            performImport(url: url, capeName: capeName)
+        }
+    }
+
+    /// Force import without validation (called after user confirms warning)
+    private func forceImportCapeFromURL(_ url: URL, capeName: String) {
+        performImport(url: url, capeName: capeName, skipValidation: true)
+    }
+
+    /// Perform the actual import operation
+    private func performImport(url: URL, capeName: String, skipValidation: Bool = false) {
+        guard let libraryController = libraryController else { return }
+
+        let error = libraryController.importCape(at: url, skipValidation: skipValidation)
         if let error = error as NSError? {
-            // Import failed due to validation
+            // Import failed for other reasons (not validation)
             validationErrorMessage = error.localizedDescription
             if let recoverySuggestion = error.localizedRecoverySuggestion {
                 validationErrorMessage += "\n\n\(recoverySuggestion)"
@@ -739,15 +780,28 @@ final class AppState: @unchecked Sendable {
     /// Export a cape to file
     func exportCape(_ cape: CursorLibrary, to url: URL? = nil) {
         // Validate cape before export
-        if let error = cape.underlyingLibrary.validateCape() as NSError? {
-            validationErrorMessage = error.localizedDescription
-            if let recoverySuggestion = error.localizedRecoverySuggestion {
-                validationErrorMessage += "\n\n\(recoverySuggestion)"
+        if let validationError = cape.underlyingLibrary.validateCape() as NSError? {
+            // Show warning dialog with option to continue
+            validationWarningMessage = validationError.localizedDescription
+            if let recoverySuggestion = validationError.localizedRecoverySuggestion {
+                validationWarningMessage += "\n\n\(recoverySuggestion)"
             }
-            showValidationError = true
+            validationWarningMessage += "\n\n\(String(localized: "validation.continueWarning"))"
+
+            // Store the action to execute if user chooses to continue
+            validationWarningAction = { [weak self] in
+                self?.proceedWithExport(cape, to: url)
+            }
+            showValidationWarning = true
             return
         }
 
+        // No validation issues, proceed with export
+        proceedWithExport(cape, to: url)
+    }
+
+    /// Proceed with export (called after validation passes or user confirms warning)
+    private func proceedWithExport(_ cape: CursorLibrary, to url: URL?) {
         if let url = url {
             exportCapeToURL(cape, url: url)
         } else {

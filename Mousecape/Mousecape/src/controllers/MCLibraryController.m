@@ -78,6 +78,10 @@
 }
 
 - (NSError *)importCapeAtURL:(NSURL *)url {
+    return [self importCapeAtURL:url skipValidation:NO];
+}
+
+- (NSError *)importCapeAtURL:(NSURL *)url skipValidation:(BOOL)skipValidation {
     MCCursorLibrary *lib = [MCCursorLibrary cursorLibraryWithContentsOfURL:url];
     if (!lib) {
         return [NSError errorWithDomain:MCErrorDomain
@@ -87,14 +91,20 @@
             NSLocalizedFailureReasonErrorKey: NSLocalizedString(@"error.import.unreadable", nil)
         }];
     }
-    return [self importCape:lib];
+    return [self importCape:lib skipValidation:skipValidation];
 }
 
 - (NSError *)importCape:(MCCursorLibrary *)lib {
-    // Validate the cape before importing
-    NSError *validationError = [lib validateCape];
-    if (validationError) {
-        return validationError; // Return validation error to caller
+    return [self importCape:lib skipValidation:NO];
+}
+
+- (NSError *)importCape:(MCCursorLibrary *)lib skipValidation:(BOOL)skipValidation {
+    // Validate the cape before importing (unless skipped)
+    if (!skipValidation) {
+        NSError *validationError = [lib validateCape];
+        if (validationError) {
+            return validationError; // Return validation error to caller
+        }
     }
 
     // Check for duplicate identifier and auto-rename if needed

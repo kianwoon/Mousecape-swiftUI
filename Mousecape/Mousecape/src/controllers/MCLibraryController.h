@@ -18,7 +18,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithURL:(NSURL *)url;
 
 - (nullable NSError *)importCapeAtURL:(NSURL *)url;
+- (nullable NSError *)importCapeAtURL:(NSURL *)url skipValidation:(BOOL)skipValidation;
 - (nullable NSError *)importCape:(MCCursorLibrary *)cape;
+- (nullable NSError *)importCape:(MCCursorLibrary *)cape skipValidation:(BOOL)skipValidation;
 
 - (void)addCape:(MCCursorLibrary *)cape;
 - (void)removeCape:(MCCursorLibrary *)cape;
