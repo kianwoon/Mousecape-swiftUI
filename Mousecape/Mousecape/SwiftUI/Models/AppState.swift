@@ -349,7 +349,7 @@ final class AppState: @unchecked Sendable {
     }
 
     private func importCapeFromURL(_ url: URL) {
-        guard let libraryController = libraryController else { return }
+        guard libraryController != nil else { return }
 
         // Get cape name from filename (without extension)
         let capeName = url.deletingPathExtension().lastPathComponent

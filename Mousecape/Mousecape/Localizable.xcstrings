@@ -776,6 +776,26 @@
         }
       }
     },
+    "Cursor" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "光标"
+          }
+        }
+      }
+    },
+    "Cursor Direction" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "光标方向"
+          }
+        }
+      }
+    },
     "Cursor image drop zone" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1326,7 +1346,14 @@
       }
     },
     "Failed to read cape file." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读取Cape失败。"
+          }
+        }
+      }
     },
     "Failed to save cape:" : {
       "localizations" : {
@@ -1711,6 +1738,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未找到有效的 inf安装文件。"
+          }
+        }
+      }
+    },
+    "Left Hand" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左手"
+          }
+        }
+      }
+    },
+    "Left-hand mode mirror cursors horizontally." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左手模式会水平翻转光标。"
           }
         }
       }
@@ -2119,6 +2166,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "恢复默认设置"
+          }
+        }
+      }
+    },
+    "Right Hand" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右手"
           }
         }
       }

@@ -264,6 +264,7 @@ struct CursorListView: View {
 struct SimpleGroupRow: View {
     let group: WindowsCursorGroup
     let cape: CursorLibrary
+    @AppStorage("MCHandedness") private var handedness = 0
 
     /// Get preview image from the first existing cursor in this group
     private var previewCursor: Cursor? {
@@ -282,6 +283,7 @@ struct SimpleGroupRow: View {
                 Image(nsImage: image)
                     .resizable()
                     .frame(width: 32, height: 32)
+                    .scaleEffect(x: handedness != 0 ? -1 : 1, y: 1)
             } else {
                 Image(systemName: group.previewSymbol)
                     .frame(width: 32, height: 32)
@@ -307,6 +309,7 @@ struct CursorListRow: View {
     let cursor: Cursor
     /// Pass the identifier to force refresh when type changes
     var currentIdentifier: String?
+    @AppStorage("MCHandedness") private var handedness = 0
 
     private var displayName: String {
         let identifier = currentIdentifier ?? cursor.identifier
@@ -332,6 +335,7 @@ struct CursorListRow: View {
                 Image(nsImage: image)
                     .resizable()
                     .frame(width: 32, height: 32)
+                    .scaleEffect(x: handedness != 0 ? -1 : 1, y: 1)
             } else {
                 let identifier = currentIdentifier ?? cursor.identifier
                 Image(systemName: CursorType(rawValue: identifier)?.previewSymbol ?? "cursorarrow")

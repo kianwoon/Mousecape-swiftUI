@@ -215,6 +215,20 @@ enum CursorType: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Whether this cursor type is a directional "pointer" that should be flipped in left-hand mode
+    /// Matches MCCursorIsPointer() in MCDefs.m
+    var isPointer: Bool {
+        switch self {
+        case .alias, .arrow, .arrowCtx, .arrowS, .busy, .closed, .copyDrag,
+             .countingDown, .countingUp, .countingUpDown, .ctxMenu,
+             .forbidden, .link, .move, .open, .pointing, .poof,
+             .wait, .zoomIn, .zoomOut:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Returns a SF Symbol name for the cursor type (for preview)
     var previewSymbol: String {
         switch self {

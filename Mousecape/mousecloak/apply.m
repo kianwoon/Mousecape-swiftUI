@@ -193,7 +193,7 @@ BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, BOOL res
     MMLog("  Size: %.1fx%.1f", size.width, size.height);
     MMLog("  Representations count: %lu", (unsigned long)[reps count]);
 
-    if (lefty && !restore && pointer) {
+    if (lefty && !restore) {
         MMLog("Lefty mode for %s", identifier.UTF8String);
         hotSpot.x = size.width - hotSpot.x - 1;
     }
@@ -208,7 +208,7 @@ BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, BOOL res
         }
         rep = rep.retaggedSRGBSpace;
 
-        if (!lefty || restore || !pointer) {
+        if (!lefty || restore) {
             // special case if array has a type of CGImage already there is no need to convert it
             if (type == CGImageGetTypeID()) {
                 images[images.count] = object;

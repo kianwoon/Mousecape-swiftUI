@@ -62,12 +62,14 @@ struct GeneralSettingsView: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("doubleClickAction") private var doubleClickAction = 0
     @State private var cursorScale: Double = 1.0
+    @State private var isLeftHanded: Bool = false
     @State private var loginToggleError: String?
     @State private var showLoginError = false
     @Environment(AppState.self) private var appState
 
     /// The key used by ObjC code for cursor scale
     private static let cursorScaleKey = "MCCursorScale"
+    private static let handednessKey = "MCHandedness"
     private static let preferenceDomain = "com.sdmj76.Mousecape"
 
     var body: some View {
@@ -122,12 +124,34 @@ struct GeneralSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            Section("Cursor") {
+                Picker("Cursor Direction", selection: Binding(
+                    get: { isLeftHanded },
+                    set: { newValue in
+                        isLeftHanded = newValue
+                        saveHandedness(newValue)
+                        if let cape = appState.appliedCape {
+                            appState.applyCape(cape)
+                        }
+                    }
+                )) {
+                    Text("Right Hand").tag(false)
+                    Text("Left Hand").tag(true)
+                }
+                .pickerStyle(.segmented)
+
+                Text("Left-hand mode mirror cursors horizontally.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .navigationTitle("General")
         .onAppear {
             loadCursorScale()
+            loadHandedness()
         }
         .alert("Login Item Error", isPresented: $showLoginError) {
             Button("OK") { }
@@ -153,6 +177,28 @@ struct GeneralSettingsView: View {
             Self.preferenceDomain as CFString
         )
         CFPreferencesAppSynchronize(Self.preferenceDomain as CFString)
+    }
+
+    /// Load handedness from CFPreferences (same as ObjC MCFlag)
+    private func loadHandedness() {
+        if let value = CFPreferencesCopyAppValue(Self.handednessKey as CFString, Self.preferenceDomain as CFString) {
+            isLeftHanded = (value as? NSNumber)?.boolValue ?? false
+        } else {
+            isLeftHanded = false
+        }
+    }
+
+    /// Save handedness to CFPreferences and UserDefaults (for @AppStorage reactivity)
+    private func saveHandedness(_ leftHanded: Bool) {
+        let intValue = leftHanded ? 1 : 0
+        CFPreferencesSetAppValue(
+            Self.handednessKey as CFString,
+            intValue as CFNumber,
+            Self.preferenceDomain as CFString
+        )
+        CFPreferencesAppSynchronize(Self.preferenceDomain as CFString)
+        // Also write to UserDefaults so @AppStorage("MCHandedness") in preview views updates reactively
+        UserDefaults.standard.set(intValue, forKey: Self.handednessKey)
     }
 }
 

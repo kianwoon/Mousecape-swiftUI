@@ -21,7 +21,12 @@ struct AnimatingCursorView: View {
     @State private var animationTimer: Timer?
     @State private var cachedFrames: [NSImage] = []
     @AppStorage("showPreviewAnimations") private var showPreviewAnimations = true
+    @AppStorage("MCHandedness") private var handedness = 0
     @Environment(AppState.self) private var appState
+
+    private var shouldFlip: Bool {
+        handedness != 0
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -53,6 +58,7 @@ struct AnimatingCursorView: View {
                     )
                 }
             }
+            .scaleEffect(x: shouldFlip ? -1 : 1, y: 1)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
@@ -219,6 +225,11 @@ private struct HotspotIndicator: View {
 struct StaticCursorImageView: View {
     let cursor: Cursor
     let size: CGFloat
+    @AppStorage("MCHandedness") private var handedness = 0
+
+    private var shouldFlip: Bool {
+        handedness != 0
+    }
 
     init(cursor: Cursor, size: CGFloat = 48) {
         self.cursor = cursor
@@ -231,6 +242,7 @@ struct StaticCursorImageView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: size, height: size)
+                .scaleEffect(x: shouldFlip ? -1 : 1, y: 1)
         } else {
             Image(systemName: "cursorarrow")
                 .font(.system(size: size * 0.5))
@@ -248,6 +260,11 @@ struct StaticCursorFrameView: View {
     let cursor: Cursor
     var frameIndex: Int = 0
     var scale: CGFloat = 1.0
+    @AppStorage("MCHandedness") private var handedness = 0
+
+    private var shouldFlip: Bool {
+        handedness != 0
+    }
 
     var body: some View {
         GeometryReader { _ in
@@ -267,6 +284,7 @@ struct StaticCursorFrameView: View {
                         .foregroundStyle(.tertiary)
                 }
             }
+            .scaleEffect(x: shouldFlip ? -1 : 1, y: 1)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
