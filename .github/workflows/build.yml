@@ -4,9 +4,6 @@ on:
   # 推送触发
   push:
     branches: [main, develop, feature]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
 
   # PR 触发
   pull_request:
