@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import ServiceManagement
 
 struct SettingsView: View {
     @State private var selectedCategory: SettingsCategory = .general
@@ -58,22 +59,41 @@ struct SettingsView: View {
 // MARK: - General Settings
 
 struct GeneralSettingsView: View {
-    @AppStorage("applyLastCapeOnLaunch") private var applyLastCapeOnLaunch = true
+    @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("doubleClickAction") private var doubleClickAction = 0
     @State private var cursorScale: Double = 1.0
+    @State private var isLeftHanded: Bool = false
+    @State private var loginToggleError: String?
+    @State private var showLoginError = false
     @Environment(AppState.self) private var appState
 
     /// The key used by ObjC code for cursor scale
     private static let cursorScaleKey = "MCCursorScale"
-    private static let preferenceDomain = "com.alexzielenski.Mousecape"
+    private static let handednessKey = "MCHandedness"
+    private static let preferenceDomain = "com.sdmj76.Mousecape"
 
     var body: some View {
         Form {
-            // Helper Tool Section (moved from Advanced)
-            HelperToolSettingsView()
-
             Section("Startup") {
-                Toggle("Apply Last Cape on Launch", isOn: $applyLastCapeOnLaunch)
+                Toggle("Apply at Login", isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, newValue in
+                        // Control MousecapeHelper's launch-at-login registration only
+                        let helper = SMAppService.loginItem(identifier: "com.sdmj76.MousecapeHelper")
+                        do {
+                            if newValue {
+                                try helper.register()
+                                debugLog("Helper registered for launch-at-login")
+                            } else {
+                                try helper.unregister()
+                                debugLog("Helper unregistered from launch-at-login")
+                            }
+                        } catch {
+                            launchAtLogin = !newValue
+                            loginToggleError = error.localizedDescription
+                            showLoginError = true
+                            debugLog("Failed to update helper status: \(error)")
+                        }
+                    }
             }
 
             Section("Double-click Action") {
@@ -88,7 +108,6 @@ struct GeneralSettingsView: View {
                 VStack(alignment: .leading) {
                     Text("\(String(localized:"Global Scale:")) \(cursorScale, specifier: "%.1f")x")
                     Slider(value: $cursorScale, in: 0.5...2.0, step: 0.1) {
-                        Text("Scale")
                     } minimumValueLabel: {
                         Text("0.5x")
                     } maximumValueLabel: {
@@ -105,12 +124,39 @@ struct GeneralSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            Section("Cursor") {
+                Picker("Cursor Direction", selection: Binding(
+                    get: { isLeftHanded },
+                    set: { newValue in
+                        isLeftHanded = newValue
+                        saveHandedness(newValue)
+                        if let cape = appState.appliedCape {
+                            appState.applyCape(cape)
+                        }
+                    }
+                )) {
+                    Text("Right Hand").tag(false)
+                    Text("Left Hand").tag(true)
+                }
+                .pickerStyle(.segmented)
+
+                Text("Left-hand mode mirror cursors horizontally.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .navigationTitle("General")
         .onAppear {
             loadCursorScale()
+            loadHandedness()
+        }
+        .alert("Login Item Error", isPresented: $showLoginError) {
+            Button("OK") { }
+        } message: {
+            Text(loginToggleError ?? "")
         }
     }
 
@@ -132,46 +178,51 @@ struct GeneralSettingsView: View {
         )
         CFPreferencesAppSynchronize(Self.preferenceDomain as CFString)
     }
+
+    /// Load handedness from CFPreferences (same as ObjC MCFlag)
+    private func loadHandedness() {
+        if let value = CFPreferencesCopyAppValue(Self.handednessKey as CFString, Self.preferenceDomain as CFString) {
+            isLeftHanded = (value as? NSNumber)?.boolValue ?? false
+        } else {
+            isLeftHanded = false
+        }
+    }
+
+    /// Save handedness to CFPreferences and UserDefaults (for @AppStorage reactivity)
+    private func saveHandedness(_ leftHanded: Bool) {
+        let intValue = leftHanded ? 1 : 0
+        CFPreferencesSetAppValue(
+            Self.handednessKey as CFString,
+            intValue as CFNumber,
+            Self.preferenceDomain as CFString
+        )
+        CFPreferencesAppSynchronize(Self.preferenceDomain as CFString)
+        // Also write to UserDefaults so @AppStorage("MCHandedness") in preview views updates reactively
+        UserDefaults.standard.set(intValue, forKey: Self.handednessKey)
+    }
 }
 
 // MARK: - Appearance Settings
 
 struct AppearanceSettingsView: View {
-    /// appearanceMode: 1 = Light, 2 = Dark (默认 1 = Light)
-    @AppStorage("appearanceMode") private var appearanceMode = 1
     @AppStorage("showPreviewAnimations") private var showPreviewAnimations = true
     @AppStorage("showAuthorInfo") private var showAuthorInfo = true
     @AppStorage("previewGridColumns") private var previewGridColumns = 0
-    @AppStorage("transparentWindow") private var transparentWindow = false
-
-    private var isDarkMode: Bool {
-        appearanceMode == 2
-    }
+    @AppStorage("previewDisplayMode") private var previewDisplayMode = 0
 
     var body: some View {
         Form {
-            Section("Theme") {
-                Picker("Appearance", selection: $appearanceMode) {
-                    Text("Light").tag(1)
-                    Text("Dark").tag(2)
-                }
-                .pickerStyle(.radioGroup)
-
-                Toggle("Transparent Window", isOn: $transparentWindow)
-                    .onChange(of: transparentWindow) { _, newValue in
-                        updateWindowTransparency(newValue)
-                    }
-                Text("Enable semi-transparent window background")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             Section("List Display") {
                 Toggle("Show Cursor Preview Animations", isOn: $showPreviewAnimations)
                 Toggle("Show Cape Author Info", isOn: $showAuthorInfo)
             }
 
             Section("Preview Panel") {
+                Picker("Display Mode", selection: $previewDisplayMode) {
+                    Text("Simple (Windows Style)").tag(0)
+                    Text("Advanced (macOS Style)").tag(1)
+                }
+
                 Picker("Preview Grid Columns", selection: $previewGridColumns) {
                     Text("Auto (based on window size)").tag(0)
                     Text("4 \(String(localized:"columns"))").tag(4)
@@ -183,24 +234,6 @@ struct AppearanceSettingsView: View {
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .navigationTitle("Appearance")
-    }
-
-    /// Update window transparency in real-time
-    private func updateWindowTransparency(_ transparent: Bool) {
-        guard let window = NSApp.windows.first else { return }
-        if transparent {
-            window.isOpaque = false
-            if isDarkMode {
-                // 深色模式：使用深灰色背景，避免与桌面混合时泛白
-                window.backgroundColor = NSColor(calibratedWhite: 0.15, alpha: 0.95)
-            } else {
-                // 浅色模式：使用系统窗口背景色
-                window.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.9)
-            }
-        } else {
-            window.isOpaque = true
-            window.backgroundColor = NSColor.windowBackgroundColor
-        }
     }
 }
 
@@ -237,6 +270,10 @@ struct AdvancedSettingsView: View {
                     Button("Reset Sidebar Order") {
                         appState.resetCapeOrder()
                         showResetOrderSuccess = true
+                    }
+
+                    Button("Dump System Cursors") {
+                        appState.dumpSystemCursors()
                     }
 
                     Button("Restore Default Settings", role: .destructive) {
@@ -300,7 +337,7 @@ struct AdvancedSettingsView: View {
                        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
                         Text("Mousecape v\(version) (\(build))")
                     } else {
-                        Text("Mousecape v1.0.4")
+                        Text("Mousecape v1.1.0")
                     }
                 }
                 LabeledContent("System Requirements") {
@@ -318,12 +355,12 @@ struct AdvancedSettingsView: View {
                         checkForUpdates()
                     }
                     Button("GitHub") {
-                        if let url = URL(string: "https://github.com/sdmj76/Mousecape") {
+                        if let url = URL(string: "https://github.com/sdmj76/Mousecape-swiftUI") {
                             NSWorkspace.shared.open(url)
                         }
                     }
                     Button("Report Issue") {
-                        if let url = URL(string: "https://github.com/sdmj76/Mousecape/issues") {
+                        if let url = URL(string: "https://github.com/sdmj76/Mousecape-swiftUI/issues") {
                             NSWorkspace.shared.open(url)
                         }
                     }
@@ -405,7 +442,7 @@ struct AdvancedSettingsView: View {
 
     private func checkForUpdates() {
         // Open GitHub releases page for manual update checking
-        if let url = URL(string: "https://github.com/sdmj76/Mousecape/releases") {
+        if let url = URL(string: "https://github.com/sdmj76/Mousecape-swiftUI/releases") {
             NSWorkspace.shared.open(url)
         }
     }

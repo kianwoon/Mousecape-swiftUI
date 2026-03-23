@@ -4,6 +4,62 @@
 
 ## English
 
+### v1.1.0 - Architecture Update
+
+**A major update with improved launch-at-login, smaller file sizes, easier editing, and a polished new look.**
+
+**What's New:**
+
+- **New App Icon** — Redesigned with a liquid glass effect that matches macOS 26's design language
+
+- **Menu Bar Quick Access** — Enable "Launch at Login" in settings to get a menu bar icon
+  - See your current cursor theme at a glance
+  - Quick actions: Apply cursor, Reset cursor, Open Mousecape
+  - More reliable startup experience
+
+- **Better Windows Cursor Support** — Import Windows cursor themes with better accuracy
+  - Now supports 85% of macOS cursor types (up from 40%)
+  - Most cursors will work correctly after importing
+
+- **Simple & Advanced Editing Modes** — Choose how you want to edit
+  - **Simple Mode:** Edit in groups (like Windows), changes apply to related cursors automatically
+  - **Advanced Mode:** Fine-tune each cursor individually
+  - **Preview Mode:** Choose how many cursors to show on the home screen
+  - Switch anytime via the toolbar
+
+- **Double-Click to Open** — Double-click any `.cape` file in Finder to open it
+
+- **Smaller File Sizes** — Cursor files are now 60% smaller
+
+- **Export System Cursors** — Back up your original Mac cursors
+  - Find it in Settings > Advanced > Reset, or in the File menu
+
+- **Better Import/Export Warnings** — See what's wrong and choose to continue or cancel
+
+- **Left-Hand Mode** — Switch to left-hand cursor layout in Settings > General
+  - Mirrors all cursors horizontally for left-handed users
+  - Preview and system cursors both flip instantly when toggled
+
+**Improvements:**
+
+- Faster performance and better stability
+- More reliable cursor application
+- Compatible with future macOS versions
+
+**Bug Fixes:**
+
+- Fixed Windows cursor transparency rendering — thin lines and edges now look crisp and correct
+- Fixed cursor application not working when some cursors were missing
+- Fixed menu bar helper stability issues
+- Fixed various UI glitches
+- Updated documentation links to point to the correct project repository
+
+**Note:** Older versions of Mousecape may not open files saved with v1.1.0. We recommend updating to the latest version.
+
+The transparent window toggle feature has been removed to simplify the codebase.
+
+---
+
 ### v1.0.4 - Features & Critical Fix
 
 **New Features:**
@@ -164,6 +220,62 @@ For normal use, download the regular version.
 <a id="中文"></a>
 
 ## 中文
+
+### v1.1.0 - 架构更新
+
+**改进开机启动、文件体积更小、编辑更方便、界面更精致的一次重大更新。**
+
+**新功能：**
+
+- **全新应用图标** — 采用液态玻璃效果重新设计，完美契合 macOS 26 设计语言
+
+- **菜单栏快速访问** — 在设置中开启"开机自动应用"后，会显示菜单栏图标
+  - 一眼看到当前使用的光标主题
+  - 快速操作：应用光标、重置光标、打开 Mousecape
+  - 启动更可靠
+
+- **更好的 Windows 光标支持** — 导入 Windows 光标主题更准确
+  - 现在支持 85% 的 macOS 光标类型（之前只有 40%）
+  - 导入后大部分光标都能正常工作
+
+- **简易/高级编辑模式** — 选择适合你的编辑方式
+  - **简易模式：** 按分组编辑（像 Windows 一样），自动应用到相关光标
+  - **高级模式：** 单独精细调整每个光标
+  - **预览模式：** 选择首页显示多少光标
+  - 随时通过工具栏切换
+
+- **双击打开** — 在访达中双击任何 `.cape` 文件即可打开
+
+- **文件体积更小** — 光标文件现在体积减少了 60%
+
+- **导出系统光标** — 备份你的 Mac 原始光标
+  - 在 设置 > 高级 > 重置 中找到，或在文件菜单中
+
+- **更好的导入/导出提示** — 显示问题并让你选择继续或取消
+
+- **左手模式** — 在 设置 > 通用 中切换光标方向
+  - 所有光标水平翻转，适合左手用户
+  - 预览和系统光标切换后立即生效
+
+**改进：**
+
+- 性能更快，运行更稳定
+- 光标应用更可靠
+- 兼容未来的 macOS 版本
+
+**Bug 修复：**
+
+- 修复 Windows 光标透明度渲染问题，细线和边缘现在显示清晰锐利
+- 修复某些光标缺失时无法应用的问题
+- 修复菜单栏助手的稳定性问题
+- 修复多个界面显示问题
+- 更新文档链接到正确的项目仓库
+
+**注意：** 旧版 Mousecape 可能无法打开 v1.1.0 保存的文件，建议更新到最新版本。
+
+透明窗口切换功能已移除，以简化代码库。
+
+---
 
 ### v1.0.4 - 功能更新 & 重大修复
 

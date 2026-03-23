@@ -11,6 +11,12 @@ import Combine
 import UniformTypeIdentifiers
 
 /// Main application state - ObservableObject for SwiftUI
+///
+/// @unchecked Sendable is safe because:
+/// 1. All access is @MainActor isolated (enforced by compiler)
+/// 2. ObjC objects (libraryController, MCCursor, MCCursorLibrary) are accessed only from main thread
+/// 3. Closures in undo/redo stacks are @MainActor closures, executed on main thread
+/// 4. No concurrent access possible due to @MainActor isolation
 @Observable @MainActor
 final class AppState: @unchecked Sendable {
 
@@ -73,6 +79,11 @@ final class AppState: @unchecked Sendable {
     var showValidationError: Bool = false
     var validationErrorMessage: String = ""
 
+    /// Validation warning state (with option to continue)
+    var showValidationWarning: Bool = false
+    var validationWarningMessage: String = ""
+    var validationWarningAction: (() -> Void)?
+
     /// Image import warning state (for non-square images)
     var showImageImportWarning: Bool = false
     var imageImportWarningMessage: String = ""
@@ -95,13 +106,16 @@ final class AppState: @unchecked Sendable {
     var lastError: Error?
     var showError: Bool = false
 
+    /// Window visibility state (for pausing animations when hidden)
+    var isWindowVisible: Bool = true
+
     // MARK: - Undo/Redo
 
-    /// Undo stack - stores closures to undo changes
-    private var undoStack: [() -> Void] = []
+    /// Undo stack - stores paired closures to undo/redo changes
+    private var undoStack: [(undo: () -> Void, redo: () -> Void)] = []
 
-    /// Redo stack - stores closures to redo changes
-    private var redoStack: [() -> Void] = []
+    /// Redo stack - stores paired closures to undo/redo changes
+    private var redoStack: [(undo: () -> Void, redo: () -> Void)] = []
 
     /// Maximum undo history size
     private let maxUndoHistory = 20
@@ -226,7 +240,7 @@ final class AppState: @unchecked Sendable {
 
     /// Load cursor scale from preferences and apply it
     private func applySavedCursorScale() {
-        let preferenceDomain = "com.alexzielenski.Mousecape"
+        let preferenceDomain = "com.sdmj76.Mousecape"
         let cursorScaleKey = "MCCursorScale"
 
         // Read saved scale value
@@ -335,14 +349,50 @@ final class AppState: @unchecked Sendable {
     }
 
     private func importCapeFromURL(_ url: URL) {
-        guard let libraryController = libraryController else { return }
+        guard libraryController != nil else { return }
 
         // Get cape name from filename (without extension)
         let capeName = url.deletingPathExtension().lastPathComponent
 
-        let error = libraryController.importCape(at: url)
+        // First, try to load the cape to validate it
+        guard let tempLibrary = MCCursorLibrary(contentsOf: url) else {
+            validationErrorMessage = String(localized: "Failed to read cape file.")
+            showValidationError = true
+            return
+        }
+
+        // Check for validation issues
+        if let validationError = tempLibrary.validateCape() as NSError? {
+            // Show warning dialog with option to continue
+            validationWarningMessage = validationError.localizedDescription
+            if let recoverySuggestion = validationError.localizedRecoverySuggestion {
+                validationWarningMessage += "\n\n\(recoverySuggestion)"
+            }
+            validationWarningMessage += "\n\n\(String(localized: "validation.continueWarning"))"
+
+            // Store the action to execute if user chooses to continue
+            validationWarningAction = { [weak self] in
+                self?.forceImportCapeFromURL(url, capeName: capeName)
+            }
+            showValidationWarning = true
+        } else {
+            // No validation issues, proceed with import
+            performImport(url: url, capeName: capeName)
+        }
+    }
+
+    /// Force import without validation (called after user confirms warning)
+    private func forceImportCapeFromURL(_ url: URL, capeName: String) {
+        performImport(url: url, capeName: capeName, skipValidation: true)
+    }
+
+    /// Perform the actual import operation
+    private func performImport(url: URL, capeName: String, skipValidation: Bool = false) {
+        guard let libraryController = libraryController else { return }
+
+        let error = libraryController.importCape(at: url, skipValidation: skipValidation)
         if let error = error as NSError? {
-            // Import failed due to validation
+            // Import failed for other reasons (not validation)
             validationErrorMessage = error.localizedDescription
             if let recoverySuggestion = error.localizedRecoverySuggestion {
                 validationErrorMessage += "\n\n\(recoverySuggestion)"
@@ -378,17 +428,17 @@ final class AppState: @unchecked Sendable {
 
         // Save identifier for "Apply Last Cape on Launch" feature
         UserDefaults.standard.set(cape.identifier, forKey: "lastAppliedCapeIdentifier")
-        // Also write MCAppliedCursor for mousecloakhelper (ObjC helper daemon)
+        // Also write MCAppliedCursor for session monitor (ObjC listen.m)
         // Uses CFPreferences to write to current user + current host domain
         CFPreferencesSetValue(
             "MCAppliedCursor" as CFString,
             cape.identifier as CFString,
-            "com.alexzielenski.Mousecape" as CFString,
+            "com.sdmj76.Mousecape" as CFString,
             kCFPreferencesCurrentUser,
             kCFPreferencesCurrentHost
         )
         CFPreferencesSynchronize(
-            "com.alexzielenski.Mousecape" as CFString,
+            "com.sdmj76.Mousecape" as CFString,
             kCFPreferencesCurrentUser,
             kCFPreferencesCurrentHost
         )
@@ -405,16 +455,16 @@ final class AppState: @unchecked Sendable {
 
         // Clear last applied cape identifier
         UserDefaults.standard.removeObject(forKey: "lastAppliedCapeIdentifier")
-        // Also clear MCAppliedCursor for mousecloakhelper
+        // Also clear MCAppliedCursor for session monitor
         CFPreferencesSetValue(
             "MCAppliedCursor" as CFString,
             nil,
-            "com.alexzielenski.Mousecape" as CFString,
+            "com.sdmj76.Mousecape" as CFString,
             kCFPreferencesCurrentUser,
             kCFPreferencesCurrentHost
         )
         CFPreferencesSynchronize(
-            "com.alexzielenski.Mousecape" as CFString,
+            "com.sdmj76.Mousecape" as CFString,
             kCFPreferencesCurrentUser,
             kCFPreferencesCurrentHost
         )
@@ -444,8 +494,8 @@ final class AppState: @unchecked Sendable {
         // Clear redo stack when new action is registered
         redoStack.removeAll()
 
-        // Add to undo stack
-        undoStack.append(undoAction)
+        // Add paired closures to undo stack
+        undoStack.append((undo: undoAction, redo: redoAction))
 
         // Limit stack size
         if undoStack.count > maxUndoHistory {
@@ -457,19 +507,16 @@ final class AppState: @unchecked Sendable {
 
     /// Undo the last change
     func undo() {
-        guard let undoAction = undoStack.popLast() else { return }
-        undoAction()
-
-        // If no more undo actions, check if we're back to saved state
-        if undoStack.isEmpty {
-            hasUnsavedChanges = false
-        }
+        guard let entry = undoStack.popLast() else { return }
+        entry.undo()
+        redoStack.append(entry)
     }
 
     /// Redo the last undone change
     func redo() {
-        guard let redoAction = redoStack.popLast() else { return }
-        redoAction()
+        guard let entry = redoStack.popLast() else { return }
+        entry.redo()
+        undoStack.append(entry)
         hasUnsavedChanges = true
     }
 
@@ -477,6 +524,143 @@ final class AppState: @unchecked Sendable {
     func clearUndoHistory() {
         undoStack.removeAll()
         redoStack.removeAll()
+    }
+
+    /// Clear all memory caches for background mode (aggressive cleanup)
+    func clearMemoryCaches() {
+        let memoryBefore = reportMemoryUsage()
+        debugLog("Clearing memory caches for background mode - Memory before: \(memoryBefore) MB")
+
+        // Save essential state before clearing
+        let selectedIdentifier = selectedCape?.identifier
+        let appliedIdentifier = appliedCape?.identifier
+        let appliedCapeName = appliedCape?.name  // Save name for menu bar display
+
+        debugLog("Clearing \(capes.count) capes with total \(capes.reduce(0) { $0 + $1.cursorCount }) cursors")
+
+        // Clear all cursor image caches
+        for cape in capes {
+            cape.invalidateCursorCache()
+            for cursor in cape.cursors {
+                cursor.invalidateImageCache()
+            }
+        }
+
+        // Aggressively clear the entire capes array to release ObjC objects
+        // This releases all MCCursorLibrary and MCCursor objects and their image data
+        capes.removeAll()
+        selectedCape = nil
+        // Don't clear appliedCape yet - we need to recreate a lightweight version for menu bar
+
+        // Clear ALL edit state to release view references
+        isEditing = false
+        editingCape = nil
+        editingSelectedCursor = nil
+        showCapeInfo = false
+        capeToDelete = nil
+
+        // Reset to home page to clear navigation stack
+        currentPage = .home
+
+        // Clear all dialog states
+        showAddCursorSheet = false
+        showDeleteCursorConfirmation = false
+        showDeleteConfirmation = false
+        showDiscardConfirmation = false
+        showDuplicateFilenameError = false
+        showValidationError = false
+        showImageImportWarning = false
+        showImportResult = false
+        showOperationResult = false
+        showError = false
+        lastError = nil
+
+        // Clear undo/redo history
+        clearUndoHistory()
+
+        // Store identifiers for restoration on window reopen
+        if let selected = selectedIdentifier {
+            UserDefaults.standard.set(selected, forKey: "lastSelectedCapeIdentifier")
+        }
+        if let applied = appliedIdentifier {
+            UserDefaults.standard.set(applied, forKey: "lastAppliedCapeIdentifier")
+        }
+
+        // CRITICAL: Clear libraryController to release all ObjC cape objects
+        // This is the key to releasing the 27+ MB of CFData held by MCLibraryController
+        libraryController = nil
+        debugLog("LibraryController released")
+
+        // Recreate a lightweight appliedCape for menu bar display (no cursor data)
+        if let appliedId = appliedIdentifier, let appliedName = appliedCapeName {
+            // Create a minimal CursorLibrary with just metadata for menu bar display
+            let lightweightLibrary = CursorLibrary(name: appliedName, author: "")
+            lightweightLibrary.identifier = appliedId
+            appliedCape = lightweightLibrary
+            debugLog("Recreated lightweight appliedCape for menu bar: \(appliedName)")
+        } else {
+            appliedCape = nil
+        }
+
+        // Force refresh triggers to update views
+        capeListRefreshTrigger += 1
+        cursorListRefreshTrigger += 1
+        capeInfoRefreshTrigger += 1
+
+        // Force memory cleanup with multiple passes
+        for _ in 0..<3 {
+            autoreleasepool {
+                // Empty pool to release autoreleased objects
+            }
+        }
+
+        let memoryAfter = reportMemoryUsage()
+        debugLog("Memory caches cleared - Memory after: \(memoryAfter) MB (freed: \(memoryBefore - memoryAfter) MB)")
+    }
+
+    /// Report current memory usage in MB
+    private func reportMemoryUsage() -> Double {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
+            // Calculate correct capacity for rebinding mach_task_basic_info to integer_t array
+            let capacity = MemoryLayout<mach_task_basic_info>.size / MemoryLayout<integer_t>.size
+            return $0.withMemoryRebound(to: integer_t.self, capacity: capacity) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        if kerr == KERN_SUCCESS {
+            let usedMB = Double(info.resident_size) / 1024.0 / 1024.0
+            return usedMB
+        }
+        return 0
+    }
+
+    /// Restore state after window reopens (called from showMainWindow)
+    func restoreStateAfterReopen() {
+        debugLog("Restoring state after window reopen")
+
+        // Recreate libraryController if it was cleared
+        if libraryController == nil {
+            setupLibraryController()
+            debugLog("LibraryController recreated")
+        }
+
+        // Reload capes from disk
+        loadCapes()
+
+        // Restore selections
+        if let selectedId = UserDefaults.standard.string(forKey: "lastSelectedCapeIdentifier") {
+            selectedCape = capes.first { $0.identifier == selectedId }
+            UserDefaults.standard.removeObject(forKey: "lastSelectedCapeIdentifier")
+        }
+
+        if let appliedId = UserDefaults.standard.string(forKey: "lastAppliedCapeIdentifier") {
+            appliedCape = capes.first { $0.identifier == appliedId }
+            UserDefaults.standard.removeObject(forKey: "lastAppliedCapeIdentifier")
+        }
+
+        debugLog("State restored - \(capes.count) capes loaded")
     }
 
     /// Request to close edit mode (may show confirmation if dirty)
@@ -596,15 +780,28 @@ final class AppState: @unchecked Sendable {
     /// Export a cape to file
     func exportCape(_ cape: CursorLibrary, to url: URL? = nil) {
         // Validate cape before export
-        if let error = cape.underlyingLibrary.validateCape() as NSError? {
-            validationErrorMessage = error.localizedDescription
-            if let recoverySuggestion = error.localizedRecoverySuggestion {
-                validationErrorMessage += "\n\n\(recoverySuggestion)"
+        if let validationError = cape.underlyingLibrary.validateCape() as NSError? {
+            // Show warning dialog with option to continue
+            validationWarningMessage = validationError.localizedDescription
+            if let recoverySuggestion = validationError.localizedRecoverySuggestion {
+                validationWarningMessage += "\n\n\(recoverySuggestion)"
             }
-            showValidationError = true
+            validationWarningMessage += "\n\n\(String(localized: "validation.continueWarning"))"
+
+            // Store the action to execute if user chooses to continue
+            validationWarningAction = { [weak self] in
+                self?.proceedWithExport(cape, to: url)
+            }
+            showValidationWarning = true
             return
         }
 
+        // No validation issues, proceed with export
+        proceedWithExport(cape, to: url)
+    }
+
+    /// Proceed with export (called after validation passes or user confirms warning)
+    private func proceedWithExport(_ cape: CursorLibrary, to url: URL?) {
         if let url = url {
             exportCapeToURL(cape, url: url)
         } else {
@@ -692,10 +889,16 @@ final class AppState: @unchecked Sendable {
     // MARK: - Cursor Actions (Edit Mode)
 
     /// Delete the currently selected cursor
+    /// In simple mode (editMode == 0), deletes the entire cursor group
     func deleteSelectedCursor() {
         guard let cape = editingCape, let cursor = editingSelectedCursor else { return }
-        cape.removeCursor(cursor)
-        editingSelectedCursor = cape.cursors.first
+        let editMode = UserDefaults.standard.integer(forKey: "cursorEditMode")
+        if editMode == 0, let group = WindowsCursorGroup.group(for: cursor.identifier) {
+            cape.removeGroupCursors(for: group)
+        } else {
+            cape.removeCursor(cursor)
+        }
+        editingSelectedCursor = nil
         markAsChanged()
         cursorListRefreshTrigger += 1
         showDeleteCursorConfirmation = false
@@ -717,6 +920,62 @@ final class AppState: @unchecked Sendable {
     func openCapeFolder() {
         guard let url = libraryController?.libraryURL else { return }
         NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
+    }
+
+    /// Dump current system cursors to a cape file in the capes directory
+    func dumpSystemCursors() {
+        Task { @MainActor in
+            await dumpSystemCursorsAsync()
+        }
+    }
+
+    /// Async implementation of dump system cursors
+    private func dumpSystemCursorsAsync() async {
+        guard let libraryController = libraryController else { return }
+
+        // Show loading overlay
+        isLoading = true
+        loadingMessage = String(localized: "Dumping system cursors...")
+
+        // Perform dump operation in background
+        let tempPath = NSTemporaryDirectory() + "SystemCursorDump.cape"
+        let success = await Task.detached {
+            dumpCursorsToFile(tempPath) { _, _ in
+                return true
+            }
+        }.value
+
+        guard success else {
+            debugLog("Failed to dump system cursors")
+            isLoading = false
+            operationResultMessage = String(localized: "Failed to dump system cursors.")
+            operationResultIsSuccess = false
+            showOperationResult = true
+            return
+        }
+
+        // Import the dumped cape
+        let tempURL = URL(fileURLWithPath: tempPath)
+        let error = libraryController.importCape(at: tempURL)
+        try? FileManager.default.removeItem(at: tempURL)
+
+        if let error = error {
+            debugLog("Failed to import dumped cape: \(error.localizedDescription)")
+            isLoading = false
+            operationResultMessage = String(localized: "Failed to dump system cursors.")
+            operationResultIsSuccess = false
+            showOperationResult = true
+            return
+        }
+
+        debugLog("System cursors dumped and imported successfully")
+        loadCapes()
+        capeListRefreshTrigger += 1
+
+        isLoading = false
+        operationResultMessage = String(localized: "System cursors have been saved to the cape folder.")
+        operationResultIsSuccess = true
+        showOperationResult = true
     }
 
     // MARK: - Validation

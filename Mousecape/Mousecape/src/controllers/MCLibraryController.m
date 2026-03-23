@@ -9,12 +9,10 @@
 #import "MCLibraryController.h"
 #import "apply.h"
 #import "restore.h"
-#import "create.h"
 #import "MCLogger.h"
 #import "MCPrefs.h"
 
 @interface MCLibraryController ()
-@property (nonatomic, readwrite, strong) NSUndoManager *undoManager;
 @property (nonatomic, retain) NSMutableSet *capes;
 @property (readwrite, copy) NSURL *libraryURL;
 @property (readwrite, weak) MCCursorLibrary *appliedCape;
@@ -37,7 +35,6 @@
 #endif
 
         self.libraryURL = url;
-        self.undoManager = [[NSUndoManager alloc] init];
 
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(willSaveNotification:) name:MCLibraryWillSaveNotificationName object:nil];
         [self loadLibrary];
@@ -46,9 +43,19 @@
     return self;
 }
 
+- (void)dealloc {
+    // Remove notification observer to break retain cycle
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+
+    // Clear capes set to release all MCCursorLibrary objects
+    [self.capes removeAllObjects];
+
+#ifdef DEBUG
+    MMLog("MCLibraryController deallocated");
+#endif
+}
+
 - (void)loadLibrary {
-    [self.undoManager disableUndoRegistration];
-    
     self.capes = [NSMutableSet set];
     NSString *capesPath = self.libraryURL.path;
     NSArray  *contents  = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:capesPath error:NULL];
@@ -61,18 +68,20 @@
 
         NSURL *fileURL = [NSURL fileURLWithPathComponents:@[ capesPath, filename ]];
         MCCursorLibrary *library = [MCCursorLibrary cursorLibraryWithContentsOfURL:fileURL];
-        
+
         if ([library.identifier isEqualToString:applied]) {
             self.appliedCape = library;
         }
-        
+
         [self addCape:library];
     }
-    
-    [self.undoManager enableUndoRegistration];
 }
 
 - (NSError *)importCapeAtURL:(NSURL *)url {
+    return [self importCapeAtURL:url skipValidation:NO];
+}
+
+- (NSError *)importCapeAtURL:(NSURL *)url skipValidation:(BOOL)skipValidation {
     MCCursorLibrary *lib = [MCCursorLibrary cursorLibraryWithContentsOfURL:url];
     if (!lib) {
         return [NSError errorWithDomain:MCErrorDomain
@@ -82,14 +91,20 @@
             NSLocalizedFailureReasonErrorKey: NSLocalizedString(@"error.import.unreadable", nil)
         }];
     }
-    return [self importCape:lib];
+    return [self importCape:lib skipValidation:skipValidation];
 }
 
 - (NSError *)importCape:(MCCursorLibrary *)lib {
-    // Validate the cape before importing
-    NSError *validationError = [lib validateCape];
-    if (validationError) {
-        return validationError; // Return validation error to caller
+    return [self importCape:lib skipValidation:NO];
+}
+
+- (NSError *)importCape:(MCCursorLibrary *)lib skipValidation:(BOOL)skipValidation {
+    // Validate the cape before importing (unless skipped)
+    if (!skipValidation) {
+        NSError *validationError = [lib validateCape];
+        if (validationError) {
+            return validationError; // Return validation error to caller
+        }
     }
 
     // Check for duplicate identifier and auto-rename if needed
@@ -125,7 +140,7 @@
         NSLog(@"Not adding %@ to the library because an object with that identifier already exists", cape.identifier);
         return;
     }
-        
+
     if (!cape) {
         NSLog(@"Cannot add nil cape");
         return;
@@ -137,41 +152,29 @@
     cape.library = self;
     [self.capes addObject:cape];
 
-    [[self.undoManager prepareWithInvocationTarget:self] removeCape:cape];
-    if (!self.undoManager.isUndoing) {
-        [self.undoManager setActionName:[@"Add " stringByAppendingString:cape.name]];
-    }
-    
     [self didChangeValueForKey:@"capes" withSetMutation:NSKeyValueUnionSetMutation usingObjects:change];
-
-    [cape.undoManager removeAllActions];
 }
 
 
 - (void)removeCape:(MCCursorLibrary *)cape {
     NSSet *change = [NSSet setWithObject:cape];
-    
+
     [self willChangeValueForKey:@"capes" withSetMutation:NSKeyValueMinusSetMutation usingObjects:change];
     if (cape == self.appliedCape)
         [self restoreCape];
 
     if (cape.library == self)
         cape.library = nil;
-    
+
     [self.capes removeObject:cape];
-    
+
     // Move the file to the trash
     NSFileManager *manager = [NSFileManager defaultManager];
     NSURL *destinationURL = [NSURL fileURLWithPath:[[@"~/.Trash" stringByExpandingTildeInPath] stringByAppendingPathComponent:cape.fileURL.lastPathComponent] isDirectory:NO];
-    
+
     [manager removeItemAtURL:destinationURL error:NULL];
     [manager moveItemAtURL:cape.fileURL toURL:destinationURL error:NULL];
 
-    [[self.undoManager prepareWithInvocationTarget:self] importCapeAtURL:destinationURL];
-    if (!self.undoManager.isUndoing) {
-        [self.undoManager setActionName:[@"Remove " stringByAppendingString:cape.name]];
-    }
-    
     [self didChangeValueForKey:@"capes" withSetMutation:NSKeyValueMinusSetMutation usingObjects:change];
 }
 
@@ -184,11 +187,6 @@
 - (void)restoreCape {
     resetAllCursors();
     self.appliedCape = nil;
-}
-
-- (NSSet *)capesWithIdentifier:(NSString *)identifier {
-    NSPredicate *pred = [NSPredicate predicateWithFormat:@"identifier == %@", identifier];
-    return [self.capes filteredSetUsingPredicate:pred];
 }
 
 - (void)willSaveNotification:(NSNotification *)note {
@@ -208,22 +206,6 @@
             }
         }
     }
-}
-
-- (BOOL)dumpCursorsWithProgressBlock:(BOOL (^)(NSUInteger current, NSUInteger total))block {
-    NSString *path = [NSTemporaryDirectory() stringByAppendingPathComponent:
-                      [NSString stringWithFormat: @"%@ (%f).cape",
-                       NSLocalizedString(@"Mousecape Dump", @"Mousecape dump cursor file name"),
-                       NSDate.date.timeIntervalSince1970]];
-    if (dumpCursorsToFile(path, block)) {
-        __weak MCLibraryController *weakSelf = self;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [weakSelf importCapeAtURL:[NSURL fileURLWithPath:path]];
-        });
-        return YES;
-    }
-
-    return NO;
 }
 
 @end

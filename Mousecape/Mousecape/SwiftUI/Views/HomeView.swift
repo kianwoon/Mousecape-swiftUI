@@ -138,6 +138,7 @@ struct HomeView: View {
                         .navigationTitle(cape.name)
                 } else if let cape = appState.selectedCape {
                     CapePreviewPanel(cape: cape)
+                        .id(cape.id)
                         .toolbar {
                             homeToolbarContent
                         }
@@ -232,6 +233,23 @@ struct HomeView: View {
             }
         } message: {
             Text(appState.validationErrorMessage)
+        }
+        // Validation warning alert (with option to continue)
+        .alert(
+            "Validation Warning",
+            isPresented: $appState.showValidationWarning
+        ) {
+            Button("Cancel", role: .cancel) {
+                appState.showValidationWarning = false
+                appState.validationWarningAction = nil
+            }
+            Button("Continue") {
+                appState.showValidationWarning = false
+                appState.validationWarningAction?()
+                appState.validationWarningAction = nil
+            }
+        } message: {
+            Text(appState.validationWarningMessage)
         }
         // Image import warning alert (non-square image)
         .alert(

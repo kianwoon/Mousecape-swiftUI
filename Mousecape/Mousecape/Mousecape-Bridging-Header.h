@@ -17,11 +17,20 @@
 #import "MCCursor.h"
 #import "MCCursorLibrary.h"
 
+// Extensions
+#import "NSBitmapImageRep+ColorSpace.h"
+
 // Controllers
 #import "MCLibraryController.h"
 
 // Scale utilities (private CoreGraphics API)
 #import "scale.h"
+
+// Session monitor (listen for user/display changes)
+#import "listen.h"
+
+// Cape creation and dump utilities
+#import "create.h"
 
 // Constants and definitions
 #import "MCDefs.h"
