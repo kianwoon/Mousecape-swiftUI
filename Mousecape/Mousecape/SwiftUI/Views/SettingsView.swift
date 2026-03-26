@@ -64,6 +64,7 @@ struct GeneralSettingsView: View {
     @State private var cursorScale: Double = 1.0
     @State private var scaleMode: ScaleMode = .global
     @State private var isLeftHanded: Bool = false
+    @State private var applyTask: Task<Void, Never>?
     @State private var loginToggleError: String?
     @State private var showLoginError = false
     @Environment(AppState.self) private var appState
@@ -73,6 +74,7 @@ struct GeneralSettingsView: View {
     private static let scaleModeKey = "MCScaleMode"
     private static let perCursorScalesKey = "MCPerCursorScales"
     private static let handednessKey = "MCHandedness"
+    private static let globalCursorScaleKey = "MCGlobalCursorScale"
     private static let preferenceDomain = "com.sdmj76.Mousecape"
 
     var body: some View {
@@ -141,6 +143,15 @@ struct GeneralSettingsView: View {
                         .onChange(of: cursorScale) { _, newValue in
                             saveCursorScale(newValue)
                             _ = setCursorScale(Float(newValue))
+                            // Re-apply cape with new scale (debounced)
+                            applyTask?.cancel()
+                            applyTask = Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(500))
+                                guard !Task.isCancelled else { return }
+                                if let cape = appState.appliedCape {
+                                    appState.applyCape(cape)
+                                }
+                            }
                         }
 
                         Text("Scale changes are applied immediately.")
@@ -179,9 +190,8 @@ struct GeneralSettingsView: View {
         .scrollContentBackground(.hidden)
         .navigationTitle("General")
         .onAppear {
-            loadCursorScale()
+            loadScaleMode()  // This now also calls loadCursorScale()
             loadHandedness()
-            loadScaleMode()
         }
         .alert("Login Item Error", isPresented: $showLoginError) {
             Button("OK") { }
@@ -192,15 +202,35 @@ struct GeneralSettingsView: View {
 
     /// Load cursor scale from CFPreferences (same as ObjC code)
     private func loadCursorScale() {
-        if let value = CFPreferencesCopyAppValue(Self.cursorScaleKey as CFString, Self.preferenceDomain as CFString) as? Double {
-            cursorScale = value
+        // In global mode, use the separate global scale preference (not MCCursorScale which custom mode overwrites)
+        if scaleMode == .global {
+            if let value = CFPreferencesCopyAppValue(Self.globalCursorScaleKey as CFString, Self.preferenceDomain as CFString) as? Double {
+                cursorScale = value
+            } else if let value = CFPreferencesCopyAppValue(Self.cursorScaleKey as CFString, Self.preferenceDomain as CFString) as? Double {
+                cursorScale = value
+            } else {
+                cursorScale = 1.0
+            }
         } else {
-            cursorScale = 1.0
+            // In custom mode, show the current system scale (maxScale from MCCursorScale)
+            if let value = CFPreferencesCopyAppValue(Self.cursorScaleKey as CFString, Self.preferenceDomain as CFString) as? Double {
+                cursorScale = value
+            } else {
+                cursorScale = 1.0
+            }
         }
     }
 
     /// Save cursor scale to CFPreferences (same as ObjC code)
     private func saveCursorScale(_ value: Double) {
+        // Save to separate global scale key so custom mode doesn't overwrite it
+        CFPreferencesSetAppValue(
+            Self.globalCursorScaleKey as CFString,
+            value as CFNumber,
+            Self.preferenceDomain as CFString
+        )
+        CFPreferencesAppSynchronize(Self.preferenceDomain as CFString)
+        // Also save to MCCursorScale for applySavedCursorScale() and apply.m
         CFPreferencesSetAppValue(
             Self.cursorScaleKey as CFString,
             value as CFNumber,
@@ -241,6 +271,8 @@ struct GeneralSettingsView: View {
         }
         // CRITICAL: Sync the C global variable so apply.m reads the correct mode
         setCustomScaleMode(scaleMode == .custom)
+        // Reload cursor scale for the current mode
+        loadCursorScale()
     }
 
     /// Save scale mode to CFPreferences

@@ -261,10 +261,11 @@ final class AppState: @unchecked Sendable {
                 _ = setCursorScale(Float(maxScale))
             }
         } else {
-            // Global mode: existing behavior
+            // Global mode: use separate global scale preference
             debugLog("Global scale mode on startup")
-            if let value = CFPreferencesCopyAppValue(cursorScaleKey as CFString, preferenceDomain as CFString) as? Double {
-                debugLog("Loading saved cursor scale: \(value)")
+            let globalScaleKey = "MCGlobalCursorScale"
+            if let value = CFPreferencesCopyAppValue(globalScaleKey as CFString, preferenceDomain as CFString) as? Double {
+                debugLog("Loading saved global cursor scale: \(value)")
                 let success = setCursorScale(Float(value))
                 if success {
                     debugLog("Successfully applied cursor scale on startup")
