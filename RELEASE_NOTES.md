@@ -4,6 +4,23 @@
 
 ## English
 
+### v1.1.2 - Bug Fix
+
+**This update fixes custom per-cursor scale for system default cursors and improves notification UI.**
+
+**Bug Fixes:**
+
+- Fixed custom per-cursor scale not working for system default cursors (resize, move, etc.) — these now correctly use their individual scale settings
+- Fixed synonym cursor expansion overwriting custom cursor images (e.g. ArrowCtx replacing ArrowS)
+- Fixed system cursors becoming unreadable after reset, causing them to skip per-cursor scaling
+
+**Improvements:**
+
+- Success notifications (apply, import, export) now use non-intrusive toast messages instead of blocking alert dialogs
+- Updated acknowledgments in README
+
+---
+
 ### v1.1.0 - Architecture Update
 
 **A major update with improved launch-at-login, smaller file sizes, easier editing, and a polished new look.**
@@ -221,7 +238,24 @@ For normal use, download the regular version.
 
 ## 中文
 
-### v1.1.0 - 架构更新
+### v1.1.2 - Bug Fix
+
+**This update fixes custom per-cursor scale for system default cursors and improves notification UI.**
+
+**Bug Fixes:**
+
+- Fixed custom per-cursor scale not working for system default cursors (resize, move, etc.) — these now correctly use their individual scale settings
+- Fixed synonym cursor expansion overwriting custom cursor images (e.g. ArrowCtx replacing ArrowS)
+- Fixed system cursors becoming unreadable after reset, causing them to skip per-cursor scaling
+
+**Improvements:**
+
+- Success notifications (apply, import, export) now use non-intrusive toast messages instead of blocking alert dialogs
+- Updated acknowledgments in README
+
+---
+
+### v1.1.0 - Architecture Update
 
 **改进开机启动、文件体积更小、编辑更方便、界面更精致的一次重大更新。**
 
