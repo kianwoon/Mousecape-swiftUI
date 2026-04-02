@@ -272,9 +272,6 @@ The pointer must use the default color scheme (white outline, black fill) for Mo
 ## Acknowledgments
 
 - Original project created by [Alex Zielenski](https://github.com/alexzielenski)
-- Demo and example cursor "Kiriko" created by [ArakiCC](https://space.bilibili.com/14913641)
-- UI guidance by [Winter喵](https://space.bilibili.com/15016945)
-- SwiftUI interface redesign and Liquid Glass adaptation by [sdmj76](https://space.bilibili.com/224661756)
 - SwiftUI code programming and localization assisted by [Claude Code](https://claude.ai/code)
 
 ## Feedback & Issues
