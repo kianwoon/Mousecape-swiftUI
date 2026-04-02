@@ -269,12 +269,6 @@ The pointer must use the default color scheme (white outline, black fill) for Mo
 
 </details>
 
-## Donate
-
-If you like my UI remake, you can buy me an afternoon tea :)
-
-![Donate](Screenshot/Donate.png)
-
 ## Acknowledgments
 
 - Original project created by [Alex Zielenski](https://github.com/alexzielenski)
