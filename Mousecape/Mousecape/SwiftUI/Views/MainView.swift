@@ -28,6 +28,9 @@ struct MainView: View {
                 // Empty view when window is hidden - releases all child views and their caches
                 Color.clear
             }
+
+            // Non-intrusive toast overlay
+            ToastNotificationView()
         }
         .alert(
             appState.importResultIsSuccess ? String(localized: "Import Complete") : String(localized: "Import Failed"),
