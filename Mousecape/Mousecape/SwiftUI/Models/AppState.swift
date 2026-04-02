@@ -97,10 +97,22 @@ final class AppState: @unchecked Sendable {
     var importResultMessage: String = ""
     var importResultIsSuccess: Bool = true
 
-    /// Operation result state (for apply, import cape, export cape)
+    /// Operation result state (for error alerts only — errors use modal, success uses toast)
     var showOperationResult: Bool = false
     var operationResultMessage: String = ""
     var operationResultIsSuccess: Bool = true
+
+    /// Toast notification state (non-intrusive, auto-dismissing)
+    var showToast: Bool = false
+    var toastMessage: String = ""
+    var toastIsSuccess: Bool = true
+
+    /// Show a non-intrusive toast notification
+    func showToastNotification(_ message: String, success: Bool = true) {
+        toastMessage = message
+        toastIsSuccess = success
+        showToast = true
+    }
 
     /// Error state
     var lastError: Error?
@@ -421,12 +433,10 @@ final class AppState: @unchecked Sendable {
             if let importedCape = importedCape {
                 applyCape(importedCape)
                 selectedCape = importedCape
+                // Single combined toast — applyCape already showed its own toast on success
+            } else {
+                showToastNotification("\"\(capeName)\" \(String(localized: "has been imported."))")
             }
-
-            // Show success message with cape name
-            operationResultMessage = "\"\(capeName)\" \(String(localized:"has been imported."))"
-            operationResultIsSuccess = true
-            showOperationResult = true
         }
     }
 
@@ -461,28 +471,28 @@ final class AppState: @unchecked Sendable {
         if success {
             appliedCape = cape
 
-            // Build detailed message
-            var message = "\"\(cape.name)\" "
             if failedCount == 0 && skippedCount == 0 {
-                message += String(localized: "applied successfully.")
+                // Clean success — toast notification
+                showToastNotification("\"\(cape.name)\" \(String(localized: "applied successfully."))")
             } else {
+                // Partial success — show modal with details
+                var message = "\"\(cape.name)\" "
                 message += String(format: String(localized: "applied with warnings (%u succeeded, %u failed, %u skipped)"),
                                 successCount, failedCount, skippedCount)
+                if failedCount > 0 {
+                    message += "\n\n" + String(localized: "Failed cursors:") + "\n" + failedIdentifiers.joined(separator: "\n")
+                    debugLog("Apply completed with failures: \(failedIdentifiers)")
+                }
+                operationResultMessage = message
+                operationResultIsSuccess = false
+                showOperationResult = true
             }
-
-            if failedCount > 0 {
-                message += "\n\n" + String(localized: "Failed cursors:") + "\n" + failedIdentifiers.joined(separator: "\n")
-                debugLog("Apply completed with failures: \(failedIdentifiers)")
-            }
-
-            operationResultMessage = message
-            operationResultIsSuccess = (failedCount == 0)
         } else {
             operationResultMessage = String(localized: "Failed to apply cape - no cursors were successfully applied.")
             operationResultIsSuccess = false
+            showOperationResult = true
             debugLog("Apply failed - no cursors succeeded")
         }
-        showOperationResult = true
 
         debugLog("Apply completed, saving preferences...")
 
@@ -882,13 +892,12 @@ final class AppState: @unchecked Sendable {
     private func exportCapeToURL(_ cape: CursorLibrary, url: URL) {
         let success = cape.underlyingLibrary.write(toFile: url.path, atomically: true)
         if success {
-            operationResultMessage = "\"\(cape.name)\" \(String(localized:"has been exported."))"
-            operationResultIsSuccess = true
+            showToastNotification("\"\(cape.name)\" \(String(localized: "has been exported."))")
         } else {
-            operationResultMessage = String(localized:"Failed to export cape.")
+            operationResultMessage = String(localized: "Failed to export cape.")
             operationResultIsSuccess = false
+            showOperationResult = true
         }
-        showOperationResult = true
     }
 
     /// Show cape in Finder
@@ -1032,9 +1041,7 @@ final class AppState: @unchecked Sendable {
         capeListRefreshTrigger += 1
 
         isLoading = false
-        operationResultMessage = String(localized: "System cursors have been saved to the cape folder.")
-        operationResultIsSuccess = true
-        showOperationResult = true
+        showToastNotification(String(localized: "System cursors have been saved to the cape folder."))
     }
 
     // MARK: - Validation
