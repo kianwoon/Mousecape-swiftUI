@@ -224,6 +224,21 @@ static NSDictionary * _Nullable systemCapeWithIdentifier(NSString *identifier) {
     if (error || !representations || !CFArrayGetCount(representations))
         return nil;
 
+    // CoreCursorCopyImages returns size={0,0} for numbered cursors (com.apple.cursor.N).
+    // Infer point size from image dimensions.
+    if (size.width < 1.0 || size.height < 1.0) {
+        CGImageRef img = (__bridge CGImageRef)((__bridge NSArray *)representations).firstObject;
+        if (img) {
+            CGFloat inferredW = (CGFloat)CGImageGetWidth(img) / 2.0;
+            CGFloat inferredH = (CGFloat)CGImageGetHeight(img) / 2.0;
+            MMLog("  Inferred size for %s from image %.0fx%.0f -> %.1fx%.1f pt",
+                  identifier.UTF8String,
+                  (CGFloat)CGImageGetWidth(img), (CGFloat)CGImageGetHeight(img),
+                  inferredW, inferredH);
+            size = CGSizeMake(inferredW, inferredH);
+        }
+    }
+
     NSDictionary *dict = @{MCCursorDictionaryFrameCountKey: @(frameCount), MCCursorDictionaryFrameDuratiomKey: @(frameDuration), MCCursorDictionaryHotSpotXKey: @(hotSpot.x), MCCursorDictionaryHotSpotYKey: @(hotSpot.y), MCCursorDictionaryPointsWideKey: @(size.width), MCCursorDictionaryPointsHighKey: @(size.height), MCCursorDictionaryRepresentationsKey: (__bridge NSArray *)representations};
 
     CFRelease(representations);
@@ -389,18 +404,18 @@ BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, BOOL res
               identifier.UTF8String, desiredScale, maxScale, ratio);
 
         if (ratio < 0.99f || ratio > 1.01f) {
-            // For system default cursors (skipSynonyms=YES), only scale the point size,
-            // keep original images — their native resolution already matches the visual
-            // output (e.g. 12x12px at 6pt, 2x = 12pt visual = 24px on 2x display).
+            // For system default cursors (skipSynonyms=YES), do NOT scale size or hotspot.
+            // These cursors use their native point size (inferred from image pixels/2)
+            // and CGSSetCursorScale(maxScale) handles the global scaling.
+            // Scaling size by ratio would shrink it to e.g. 4pt which becomes invisible.
             BOOL isSystemDefault = (skipSynonyms && size.width < 31.0);
 
-            // Scale size proportionally
-            size = CGSizeMake(size.width * ratio, size.height * ratio);
-            MMLog("Custom scaling %s: desired=%.2f, max=%.2f, ratio=%.3f, newSize=%.1fx%.1f",
-                  identifier.UTF8String, desiredScale, maxScale, ratio, size.width, size.height);
-
-            // Only scale images for cape cursors (not system defaults — keep original res)
             if (!isSystemDefault) {
+                // Cape cursors: scale size, images, and hotspot by ratio
+                size = CGSizeMake(size.width * ratio, size.height * ratio);
+                MMLog("Custom scaling %s: desired=%.2f, max=%.2f, ratio=%.3f, newSize=%.1fx%.1f",
+                      identifier.UTF8String, desiredScale, maxScale, ratio, size.width, size.height);
+
                 CGColorSpaceRef scaleColorSpace = CGColorSpaceCreateDeviceRGB();
                 NSMutableArray *scaledImages = [NSMutableArray arrayWithCapacity:images.count];
                 for (id imgObj in images) {
@@ -428,14 +443,15 @@ BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, BOOL res
                 }
                 CGColorSpaceRelease(scaleColorSpace);
                 images = scaledImages;
-            } else {
-                MMLog("  System default cursor %s: keeping original %.0fx%.0f image, size scaled to %.1fpt",
-                      identifier.UTF8String, (CGFloat)CGImageGetWidth((__bridge CGImageRef)images.firstObject), (CGFloat)CGImageGetHeight((__bridge CGImageRef)images.firstObject), size.width);
-            }
 
-            // Scale hotspot proportionally with the image to maintain correct position
-            hotSpot = CGPointMake(hotSpot.x * ratio, hotSpot.y * ratio);
-            MMLog("Hotspot scaled by ratio %.3f: (%.1f, %.1f)", ratio, hotSpot.x, hotSpot.y);
+                hotSpot = CGPointMake(hotSpot.x * ratio, hotSpot.y * ratio);
+                MMLog("Hotspot scaled by ratio %.3f: (%.1f, %.1f)", ratio, hotSpot.x, hotSpot.y);
+            } else {
+                MMLog("  System default cursor %s: keeping native size %.1fx%.1f pt, image %.0fx%.0f px (no ratio scaling, CGSSetCursorScale handles it)",
+                      identifier.UTF8String, size.width, size.height,
+                      (CGFloat)CGImageGetWidth((__bridge CGImageRef)images.firstObject),
+                      (CGFloat)CGImageGetHeight((__bridge CGImageRef)images.firstObject));
+            }
         }
     }
 
@@ -464,44 +480,6 @@ BOOL applyCape(NSDictionary *dictionary) {
         float savedScale = cursorScale();
         MMLog("Saved system scale before reset: %.2f", savedScale);
 
-        // Dump ALL system cursors to a temp file BEFORE reset. This uses the same
-        // CoreCursorSet + CoreCursorCopyImages pattern as dumpCursorsToFile which is
-        // proven to work for ALL system cursor types (0-44). We need this because
-        // after resetAllCursors(), these cursors become unreadable.
-        NSMutableDictionary *cachedSystemCursors = [NSMutableDictionary dictionary];
-        if (customScaleMode()) {
-            NSDictionary *perCursorScales = MCDefault(MCPreferencesPerCursorScalesKey);
-            if (perCursorScales.count > 0) {
-                MMLog("--- Dumping system cursors for per-cursor scale ---");
-                float dumpScale = 16.0;
-                CGSSetCursorScale(CGSMainConnectionID(), dumpScale);
-                CGSHideCursor(CGSMainConnectionID());
-
-                for (NSString *ident in perCursorScales) {
-                    // Skip if the cape has custom images for this cursor
-                    NSDictionary *capeEntry = cursors[ident];
-                    if (capeEntry) {
-                        NSArray *reps = capeEntry[MCCursorDictionaryRepresentationsKey];
-                        if (reps && reps.count > 0) continue;
-                    }
-                    if ([ident hasPrefix:@"com.apple.cursor"]) {
-                        CGSCursorID cursorID = [[ident pathExtension] intValue];
-                        CoreCursorSet(CGSMainConnectionID(), cursorID);
-                    }
-                    NSDictionary *sysCape = capeWithIdentifier(ident);
-                    if (sysCape) {
-                        cachedSystemCursors[ident] = sysCape;
-                        MMLog("  Dumped: %s", ident.UTF8String);
-                    } else {
-                        MMLog(YELLOW "  Failed to dump: %s" RESET, ident.UTF8String);
-                    }
-                }
-
-                CGSSetCursorScale(CGSMainConnectionID(), savedScale);
-                CGSShowCursor(CGSMainConnectionID());
-            }
-        }
-
         MMLog("--- Calling resetAllCursors ---");
         resetAllCursors();
         MMLog("--- Calling backupAllCursors ---");
@@ -511,19 +489,22 @@ BOOL applyCape(NSDictionary *dictionary) {
         BOOL isCustomMode = customScaleMode();
 
         if (isCustomMode) {
+            float minScale = 16.0f;
             float maxScale = 1.0f;
             NSDictionary *perCursorScales = MCDefault(MCPreferencesPerCursorScalesKey);
             if (perCursorScales) {
                 for (NSNumber *val in perCursorScales.allValues) {
                     float s = val.floatValue;
+                    if (s > 0.0f && s < minScale) minScale = s;
                     if (s > maxScale) maxScale = s;
                 }
             }
-            MMLog("SCALE DEBUG: custom mode, maxScale=%.2f", maxScale);
-            setCursorScale(maxScale);
-            // Save maxScale to a separate key so it doesn't overwrite the global scale (MCGlobalCursorScale)
-            // listen.m reads from this key when restoring custom mode scale
-            MCSetDefault(@(maxScale), @"MCCustomMaxScale");
+            MMLog("SCALE DEBUG: custom mode, minScale=%.2f, maxScale=%.2f", minScale, maxScale);
+            // Use minScale as CGSSetCursorScale so system defaults (not re-registered)
+            // appear at the smallest per-cursor scale with native quality.
+            setCursorScale(minScale);
+            // Save for listen.m to restore on session change
+            MCSetDefault(@(minScale), @"MCCustomMaxScale");
         } else {
             // Global mode: restore the exact scale that was active before reset
             MMLog("SCALE DEBUG: global mode, restoring to %.2f", savedScale);
@@ -547,23 +528,10 @@ BOOL applyCape(NSDictionary *dictionary) {
             // Check if cursor has valid image data before attempting to apply
             NSArray *reps = cape[MCCursorDictionaryRepresentationsKey];
             if (!reps || reps.count == 0) {
-                // In custom scale mode, try to apply the system default cursor
-                // with per-cursor scale so default cursors also respect scale settings
-                if (isCustomMode) {
-                    NSDictionary *systemCape = systemCapeWithIdentifier(key);
-                    if (systemCape) {
-                        NSArray *systemReps = systemCape[MCCursorDictionaryRepresentationsKey];
-                        if (systemReps && systemReps.count > 0) {
-                            MMLog("  Default cursor %s - applying system default with scale", key.UTF8String);
-                            BOOL success = applyCapeForIdentifier(systemCape, key, NO, isCustomMode, YES);
-                            if (success) {
-                                successCount++;
-                                continue;
-                            }
-                        }
-                    }
-                }
-                MMLog(YELLOW "  Skipping cursor %s - no image data (Representations count: 0)" RESET, key.UTF8String);
+                // System default cursors with no cape images are left alone
+                // after resetAllCursors() — they render at native quality.
+                // In custom mode they will appear at maxScale (CGSSetCursorScale).
+                MMLog(YELLOW "  Skipping cursor %s - no image data (system default, left native)" RESET, key.UTF8String);
                 skippedCount++;
                 continue;
             }
@@ -574,41 +542,6 @@ BOOL applyCape(NSDictionary *dictionary) {
                 failedCount++;
             } else {
                 successCount++;
-            }
-        }
-
-        // In custom scale mode, also apply per-cursor scale to cursor types
-        // that are NOT in the cape at all (e.g. resize types the user never customized)
-        if (isCustomMode) {
-            NSDictionary *perCursorScales = MCDefault(MCPreferencesPerCursorScalesKey);
-            if (perCursorScales.count > 0) {
-                NSUInteger defaultAppliedCount = 0;
-                for (NSString *scaleIdent in perCursorScales) {
-                    // Skip if already handled in the main loop
-                    if (cursors[scaleIdent] != nil) continue;
-
-                    float desiredScale = [perCursorScales[scaleIdent] floatValue];
-                    if (desiredScale <= 0.0f) continue;
-
-                    // Use pre-cached system cursor data (captured before resetAllCursors)
-                    NSDictionary *sysCape = cachedSystemCursors[scaleIdent];
-                    if (!sysCape) continue;
-
-                    NSArray *sysReps = sysCape[MCCursorDictionaryRepresentationsKey];
-                    if (!sysReps || sysReps.count == 0) continue;
-
-                    MMLog("  Applying system cursor %s with per-cursor scale %.2f (not in cape)",
-                          scaleIdent.UTF8String, desiredScale);
-                    BOOL success = applyCapeForIdentifier(sysCape, scaleIdent, NO, isCustomMode, YES);
-                    if (success) {
-                        defaultAppliedCount++;
-                        successCount++;
-                    }
-                }
-                if (defaultAppliedCount > 0) {
-                    MMLog("  Applied %lu default cursors with per-cursor scale",
-                          (unsigned long)defaultAppliedCount);
-                }
             }
         }
 
@@ -692,41 +625,6 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
         float savedScale = cursorScale();
         MMLog("Saved system scale before reset: %.2f", savedScale);
 
-        // Dump ALL system cursors BEFORE reset for per-cursor scale.
-        // Uses the same CoreCursorSet + capeWithIdentifier pattern as dumpCursorsToFile.
-        NSMutableDictionary *cachedSystemCursors = [NSMutableDictionary dictionary];
-        {
-            NSDictionary *perCursorScales = MCDefault(MCPreferencesPerCursorScalesKey);
-            if (perCursorScales.count > 0) {
-                MMLog("--- Dumping system cursors for per-cursor scale ---");
-                CGSSetCursorScale(CGSMainConnectionID(), 16.0);
-                CGSHideCursor(CGSMainConnectionID());
-
-                for (NSString *ident in perCursorScales) {
-                    // Skip if the cape has custom images for this cursor
-                    NSDictionary *capeEntry = cursors[ident];
-                    if (capeEntry) {
-                        NSArray *reps = capeEntry[MCCursorDictionaryRepresentationsKey];
-                        if (reps && reps.count > 0) continue;
-                    }
-                    if ([ident hasPrefix:@"com.apple.cursor"]) {
-                        CGSCursorID cursorID = [[ident pathExtension] intValue];
-                        CoreCursorSet(CGSMainConnectionID(), cursorID);
-                    }
-                    NSDictionary *sysCape = capeWithIdentifier(ident);
-                    if (sysCape) {
-                        cachedSystemCursors[ident] = sysCape;
-                        MMLog("  Dumped: %s", ident.UTF8String);
-                    } else {
-                        MMLog(YELLOW "  Failed to dump: %s" RESET, ident.UTF8String);
-                    }
-                }
-
-                CGSSetCursorScale(CGSMainConnectionID(), savedScale);
-                CGSShowCursor(CGSMainConnectionID());
-            }
-        }
-
         MMLog("--- Calling resetAllCursors ---");
         resetAllCursors();
         MMLog("--- Calling backupAllCursors ---");
@@ -736,19 +634,22 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
         BOOL isCustomMode = customScaleMode();
 
         if (isCustomMode) {
+            float minScale = 16.0f;
             float maxScale = 1.0f;
             NSDictionary *perCursorScales = MCDefault(MCPreferencesPerCursorScalesKey);
             if (perCursorScales) {
                 for (NSNumber *val in perCursorScales.allValues) {
                     float s = val.floatValue;
+                    if (s > 0.0f && s < minScale) minScale = s;
                     if (s > maxScale) maxScale = s;
                 }
             }
-            MMLog("SCALE DEBUG: custom mode, maxScale=%.2f", maxScale);
-            setCursorScale(maxScale);
-            // Save maxScale to a separate key so it doesn't overwrite the global scale (MCGlobalCursorScale)
-            // listen.m reads from this key when restoring custom mode scale
-            MCSetDefault(@(maxScale), @"MCCustomMaxScale");
+            MMLog("SCALE DEBUG: custom mode, minScale=%.2f, maxScale=%.2f", minScale, maxScale);
+            // Use minScale as CGSSetCursorScale so system defaults (not re-registered)
+            // appear at the smallest per-cursor scale with native quality.
+            setCursorScale(minScale);
+            // Save for listen.m to restore on session change
+            MCSetDefault(@(minScale), @"MCCustomMaxScale");
         } else {
             MMLog("SCALE DEBUG: global mode, restoring to %.2f", savedScale);
             if (savedScale >= 0.5f && savedScale <= 16.0f) {
@@ -773,18 +674,10 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
             // Check if cursor has valid image data before attempting to apply
             NSArray *reps = cape[MCCursorDictionaryRepresentationsKey];
             if (!reps || reps.count == 0) {
-                // In custom scale mode, re-register the system default cursor
-                // with per-cursor scale from pre-cached data. Skip synonym expansion
-                // (e.g. ArrowCtx -> ArrowS) to avoid overwriting custom cursor images.
-                if (isCustomMode && cachedSystemCursors[key]) {
-                    NSDictionary *sysCape = cachedSystemCursors[key];
-                    MMLog("  Re-registering default cursor %s with per-cursor scale (no normalization, skip synonyms)", key.UTF8String);
-                    if (applyCapeForIdentifier(sysCape, key, NO, isCustomMode, YES)) {
-                        successCount++;
-                        continue;
-                    }
-                }
-                MMLog(YELLOW "  Skipping cursor %s - no image data" RESET, key.UTF8String);
+                // System default cursors with no cape images are left alone
+                // after resetAllCursors() — they render at native quality.
+                // In custom mode they will appear at maxScale (CGSSetCursorScale).
+                MMLog(YELLOW "  Skipping cursor %s - no image data (system default, left native)" RESET, key.UTF8String);
                 skippedCount++;
                 [skippedIdentifiers addObject:key];
                 continue;
@@ -797,36 +690,6 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
                 [failedIdentifiers addObject:key];
             } else {
                 successCount++;
-            }
-        }
-
-        // Register system default cursors for types NOT in the cape
-        // that have per-cursor scale settings. Use original system cursor size
-        // (no normalization) to avoid image data / metadata mismatch.
-        // Synonym expansion is handled by applyCapeForIdentifier which skips
-        // synonyms for cursors that are already registered with custom images.
-        if (isCustomMode && cachedSystemCursors.count > 0) {
-            NSUInteger defaultAppliedCount = 0;
-            for (NSString *scaleIdent in cachedSystemCursors) {
-                // Skip if already handled in the main loop
-                if (cursors[scaleIdent] != nil) continue;
-
-                NSDictionary *sysCape = cachedSystemCursors[scaleIdent];
-                if (!sysCape) continue;
-
-                NSArray *sysReps = sysCape[MCCursorDictionaryRepresentationsKey];
-                if (!sysReps || sysReps.count == 0) continue;
-
-                MMLog("  Applying system cursor %s with per-cursor scale (not in cape)",
-                      scaleIdent.UTF8String);
-                if (applyCapeForIdentifier(sysCape, scaleIdent, NO, isCustomMode, YES)) {
-                    defaultAppliedCount++;
-                    successCount++;
-                }
-            }
-            if (defaultAppliedCount > 0) {
-                MMLog("  Applied %lu default cursors with per-cursor scale",
-                      (unsigned long)defaultAppliedCount);
             }
         }
 

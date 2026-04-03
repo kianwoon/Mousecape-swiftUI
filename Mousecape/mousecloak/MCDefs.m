@@ -129,7 +129,21 @@ NSDictionary *capeWithIdentifier(NSString *identifier) {
     
     if (error || !representations || !CFArrayGetCount(representations))
         return nil;
-    
+
+    // CoreCursorCopyImages returns size={0,0} for numbered cursors (com.apple.cursor.N).
+    // Infer point size from image dimensions.
+    if (size.width < 1.0 || size.height < 1.0) {
+        CGImageRef img = (__bridge CGImageRef)((__bridge NSArray *)representations).firstObject;
+        if (img) {
+            CGFloat inferredW = (CGFloat)CGImageGetWidth(img) / 2.0;
+            CGFloat inferredH = (CGFloat)CGImageGetHeight(img) / 2.0;
+            MMLog("  Inferred size from image %.0fx%.0f -> %.1fx%.1f pt",
+                  (CGFloat)CGImageGetWidth(img), (CGFloat)CGImageGetHeight(img),
+                  inferredW, inferredH);
+            size = CGSizeMake(inferredW, inferredH);
+        }
+    }
+
     NSDictionary *dict = @{MCCursorDictionaryFrameCountKey: @(frameCount), MCCursorDictionaryFrameDuratiomKey: @(frameDuration), MCCursorDictionaryHotSpotXKey: @(hotSpot.x), MCCursorDictionaryHotSpotYKey: @(hotSpot.y), MCCursorDictionaryPointsWideKey: @(size.width), MCCursorDictionaryPointsHighKey: @(size.height), MCCursorDictionaryRepresentationsKey: (__bridge NSArray *)representations};
     
     CFRelease(representations);
