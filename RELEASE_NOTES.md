@@ -4,6 +4,17 @@
 
 ## English
 
+### v1.1.3 - Improvement
+
+**This update makes custom cursor scale changes apply instantly.**
+
+**Improvements:**
+
+- Custom per-cursor scale now applies immediately when you release the slider — no need to leave the settings screen first
+- "Reset to 1.0x", "Reset All", and "Set All" buttons also apply changes instantly
+
+---
+
 ### v1.1.2 - Bug Fix
 
 **This update fixes custom per-cursor scale for system default cursors and improves notification UI.**
@@ -237,6 +248,17 @@ For normal use, download the regular version.
 <a id="中文"></a>
 
 ## 中文
+
+### v1.1.3 - 改进
+
+**本次更新使自定义光标缩放更改即时生效。**
+
+**改进：**
+
+- 自定义光标缩放现在在释放滑块时立即应用 — 无需先离开设置页面
+- "重置为 1.0x"、"全部重置"、"全部设置"按钮也会即时应用更改
+
+---
 
 ### v1.1.2 - Bug Fix
 

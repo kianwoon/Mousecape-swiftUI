@@ -374,4 +374,11 @@ void MCEnumerateAllCursorIdentifiers(void (NS_NOESCAPE ^block)(NSString *identif
     for (NSString *name in MCIBeamSynonyms()) {
         block(name);
     }
+    // Enumerate all CoreCursor IDs (com.apple.cursor.N) for resize, move, link,
+    // and other system cursors that don't have com.apple.coregraphics.* names.
+    // Duplicate IDs are harmlessly skipped by backupCursorForIdentifier (checks
+    // if backup already exists) and restoreCursorForIdentifier (checks if registered).
+    for (int cid = 0; cid <= 44; cid++) {
+        block([NSString stringWithFormat:@"com.apple.cursor.%d", cid]);
+    }
 }

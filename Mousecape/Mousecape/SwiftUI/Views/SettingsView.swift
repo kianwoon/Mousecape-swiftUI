@@ -477,7 +477,7 @@ struct AdvancedSettingsView: View {
                        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
                         Text("Mousecape v\(version) (\(build))")
                     } else {
-                        Text("Mousecape v1.1.2")
+                        Text("Mousecape v1.1.3")
                     }
                 }
                 LabeledContent("System Requirements") {
@@ -650,19 +650,32 @@ struct CustomScaleView: View {
                         Slider(value: Binding(
                             get: { currentScale },
                             set: { newValue in
-                                updateScale(for: selected, to: newValue)
+                                perCursorScales[selected.rawValue] = newValue
+                                savePerCursorScales()
                             }
                         ), in: 0.5...16.0, step: 0.1) {
                         } minimumValueLabel: {
                             Text("0.5x")
                         } maximumValueLabel: {
                             Text("16.0x")
+                        } onEditingChanged: { isEditing in
+                            if !isEditing {
+                                recalculateMaxScaleAndApply()
+                                if let cape = appState.appliedCape {
+                                    appState.applyCape(cape)
+                                }
+                                hasUnsavedScaleChanges = false
+                            }
                         }
                     }
 
                     HStack(spacing: 12) {
                         Button("Reset to 1.0x") {
                             updateScale(for: selected, to: 1.0)
+                            if let cape = appState.appliedCape {
+                                appState.applyCape(cape)
+                            }
+                            hasUnsavedScaleChanges = false
                         }
                         .buttonStyle(.bordered)
 
@@ -678,6 +691,10 @@ struct CustomScaleView: View {
                     HStack {
                         Button("Reset All to 1.0x") {
                             resetAllScales()
+                            if let cape = appState.appliedCape {
+                                appState.applyCape(cape)
+                            }
+                            hasUnsavedScaleChanges = false
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.red)
@@ -711,6 +728,10 @@ struct CustomScaleView: View {
             Button("Cancel", role: .cancel) { }
             Button("Set All") {
                 setAllScales(to: setAllValue)
+                if let cape = appState.appliedCape {
+                    appState.applyCape(cape)
+                }
+                hasUnsavedScaleChanges = false
             }
         } message: {
             Text("Set all cursor scales to \(setAllValue, specifier: "%.1f")x?")
@@ -755,16 +776,18 @@ struct CustomScaleView: View {
     }
 
     private func recalculateMaxScaleAndApply() {
-        let maxScale = perCursorScales.values.max() ?? 1.0
-        // Save maxScale to MCCustomMaxScale (separate from global scale to prevent cross-contamination)
+        // Custom mode: CGSSetCursorScale = 1.0, each cursor registers at its
+        // desired point size directly (nativeSize × desiredScale).
+        let baseScale = 1.0
+        // Save baseScale to MCCustomMaxScale for listen.m/session restore
         CFPreferencesSetAppValue(
             "MCCustomMaxScale" as CFString,
-            maxScale as CFNumber,
+            baseScale as CFNumber,
             Self.preferenceDomain as CFString
         )
         CFPreferencesAppSynchronize(Self.preferenceDomain as CFString)
         // Set system scale immediately for visual feedback (lightweight CGS call)
-        _ = setCursorScale(Float(maxScale))
+        _ = setCursorScale(Float(baseScale))
         // Mark that a full re-apply is needed on screen exit (expensive — re-registers all cursors)
         hasUnsavedScaleChanges = true
     }
