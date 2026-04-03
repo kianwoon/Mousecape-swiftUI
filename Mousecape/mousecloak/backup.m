@@ -41,19 +41,12 @@ void backupCursorForIdentifier(NSString *ident) {
 
 void backupAllCursors(void) {
     MMLog("=== backupAllCursors ===");
-    bool arrowRegistered = false;
-    MCIsCursorRegistered(CGSMainConnectionID(), (char *)backupStringForIdentifier(@"com.apple.coregraphics.Arrow").UTF8String, &arrowRegistered);
-
-    if (arrowRegistered) {
-        MMLog("Skipping backup, backup already exists");
-//         we are already backed up
-        return;
-    }
-    // Backup all cursors (default + synonyms)
+    // Iterate ALL identifiers — backupCursorForIdentifier individually skips
+    // cursors that already have backups, so this safely picks up any newly-added
+    // identifiers (e.g. com.apple.cursor.N added in v1.1.2) on existing installs.
     MMLog("--- Backing up all cursors ---");
     MCEnumerateAllCursorIdentifiers(^(NSString *name) {
         backupCursorForIdentifier(name);
     });
-    // no need to backup core cursors
     MMLog("=== backupAllCursors complete ===");
 }

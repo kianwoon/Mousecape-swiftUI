@@ -215,14 +215,19 @@ static NSDictionary * _Nullable systemCapeWithIdentifier(NSString *identifier) {
         // ACTIVE cursor. We must call CoreCursorSet first to activate it, just like
         // dumpCursorsToFile does before reading.
         CGSCursorID cursorID = [[identifier pathExtension] intValue];
+        MMLog("  systemCape: CoreCursorSet(%d) for %s", (int)cursorID, identifier.UTF8String);
         error = CoreCursorSet(CGSMainConnectionID(), cursorID);
+        MMLog("  systemCape: CoreCursorSet result: %d", (int)error);
         if (error == noErr) {
             error = CoreCursorCopyImages(CGSMainConnectionID(), cursorID, &representations, &size, &hotSpot, &frameCount, &frameDuration);
+            MMLog("  systemCape: CoreCursorCopyImages result: %d, reps=%lu", (int)error, (unsigned long)(representations ? CFArrayGetCount(representations) : 0));
         }
     }
 
-    if (error || !representations || !CFArrayGetCount(representations))
+    if (error || !representations || !CFArrayGetCount(representations)) {
+        MMLog(YELLOW "  systemCape FAILED for %s: error=%d, reps=%p" RESET, identifier.UTF8String, (int)error, representations);
         return nil;
+    }
 
     // CoreCursorCopyImages returns size={0,0} for numbered cursors (com.apple.cursor.N).
     // Infer point size from image dimensions.
@@ -356,6 +361,57 @@ BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, BOOL res
                          hints:nil];
             [NSGraphicsContext restoreGraphicsState];
             images[images.count] = (__bridge id)[newRep CGImage];
+        }
+    }
+
+    // Upscale low-resolution images when the target size demands more pixels.
+    // System default cursors from CoreCursorCopyImages only have a single ~64px
+    // representation. Without upscaling, the OS stretches them with
+    // nearest-neighbor interpolation when registered at a larger point size,
+    // causing visible pixelation. Upscaling here with high-quality interpolation
+    // produces a sharper result. Cape cursors with multi-resolution
+    // representations (1x, 2x, 5x, 10x) are typically already close enough to
+    // the target and skip this path.
+    if (images.count > 0 && bestRep) {
+        NSUInteger srcPixels = (NSUInteger)bestRep.pixelsWide * (NSUInteger)bestRep.pixelsHigh;
+        if (targetPixelCount > srcPixels * 4) {
+            // More than 2x upscale needed — do it ourselves with bicubic interpolation
+            CGFloat scale = sqrt((CGFloat)targetPixelCount / (CGFloat)srcPixels);
+            NSUInteger newWidth = (NSUInteger)(bestRep.pixelsWide * scale + 0.5);
+            NSUInteger newHeight = (NSUInteger)(bestRep.pixelsHigh * scale + 0.5);
+            MMLog("  Upscaling image from %lux%lu to %lux%lu (%.1fx) for smoother rendering",
+                  (unsigned long)bestRep.pixelsWide, (unsigned long)bestRep.pixelsHigh,
+                  (unsigned long)newWidth, (unsigned long)newHeight, scale);
+
+            NSMutableArray *upscaled = [NSMutableArray arrayWithCapacity:images.count];
+            for (id imgObj in images) {
+                CGImageRef original = (__bridge CGImageRef)imgObj;
+                NSUInteger w = CGImageGetWidth(original);
+                NSUInteger h = CGImageGetHeight(original);
+                NSUInteger uw = (NSUInteger)(w * scale + 0.5);
+                NSUInteger uh = (NSUInteger)(h * scale + 0.5);
+
+                CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+                CGContextRef ctx = CGBitmapContextCreate(NULL, uw, uh, 8, uw * 4,
+                                                         cs,
+                                                         kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host);
+                CGColorSpaceRelease(cs);
+                if (ctx) {
+                    CGContextSetInterpolationQuality(ctx, kCGInterpolationHigh);
+                    CGContextDrawImage(ctx, CGRectMake(0, 0, uw, uh), original);
+                    CGImageRef upscaledImg = CGBitmapContextCreateImage(ctx);
+                    if (upscaledImg) {
+                        [upscaled addObject:(__bridge id)upscaledImg];
+                        CGImageRelease(upscaledImg);
+                    }
+                    CGContextRelease(ctx);
+                } else {
+                    [upscaled addObject:imgObj]; // fallback to original
+                }
+            }
+            if (upscaled.count > 0) {
+                images = upscaled;
+            }
         }
     }
 
@@ -516,27 +572,40 @@ BOOL applyCape(NSDictionary *dictionary) {
         // their desired scale too.
         if (isCustomMode) {
             MMLog("--- Re-registering system defaults with per-cursor scale ---");
-            NSMutableSet *registeredKeys = [NSMutableSet setWithArray:cursors.allKeys];
+            // Only include cursors that were SUCCESSFULLY applied (have images).
+            // Skipped cursors (no image data in cape) must still be handled.
+            NSMutableSet *registeredKeys = [NSMutableSet set];
+            for (NSString *key in cursors) {
+                NSArray *reps = cursors[key][MCCursorDictionaryRepresentationsKey];
+                if (reps && reps.count > 0) {
+                    [registeredKeys addObject:key];
+                }
+            }
+            MMLog("  registeredKeys count (successfully applied): %lu of %lu total cape entries",
+                  (unsigned long)registeredKeys.count, (unsigned long)cursors.count);
             __block NSUInteger systemDefaultCount = 0;
+            __block NSUInteger skippedByRegisteredKeys = 0;
             MCEnumerateAllCursorIdentifiers(^(NSString *name) {
                 if ([registeredKeys containsObject:name]) {
+                    skippedByRegisteredKeys++;
                     return; // Already registered as cape cursor
                 }
-                // Read backup data for this system default cursor
-                NSString *backupKey = backupStringForIdentifier(name);
-                NSDictionary *backupData = MCDefault(backupKey);
-                if (!backupData) {
-                    return; // No backup data available
+                // Read system cursor data directly via CoreCursorSet/CoreCursorCopyImages.
+                // Backups may not exist for com.apple.cursor.N identifiers since
+                // MCIsCursorRegistered returns false for them.
+                NSDictionary *systemData = systemCapeWithIdentifier(name);
+                if (!systemData) {
+                    return; // No system cursor data available
                 }
                 // Register with per-cursor scaling (skipSynonyms=YES for system defaults)
-                BOOL ok = applyCapeForIdentifier(backupData, name, NO, YES, YES);
+                BOOL ok = applyCapeForIdentifier(systemData, name, NO, YES, YES);
                 if (ok) {
                     systemDefaultCount++;
                 } else {
                     MMLog(YELLOW "  Failed to re-register system default %s" RESET, name.UTF8String);
                 }
             });
-            MMLog("  Re-registered %lu system default cursors with per-cursor scale", (unsigned long)systemDefaultCount);
+            MMLog("  Re-registered %lu system default cursors (skipped %lu by registeredKeys)", (unsigned long)systemDefaultCount, (unsigned long)skippedByRegisteredKeys);
         }
 
         MMLog("--- Application Summary ---");
@@ -696,25 +765,35 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
         // Fix: explicitly re-register them with per-cursor scaling.
         if (isCustomMode) {
             MMLog("--- Re-registering system defaults with per-cursor scale ---");
-            NSMutableSet *registeredKeys = [NSMutableSet setWithArray:cursors.allKeys];
+            NSMutableSet *registeredKeys = [NSMutableSet set];
+            for (NSString *key in cursors) {
+                NSArray *reps = cursors[key][MCCursorDictionaryRepresentationsKey];
+                if (reps && reps.count > 0) {
+                    [registeredKeys addObject:key];
+                }
+            }
             __block NSUInteger systemDefaultCount = 0;
+            __block NSUInteger skippedByRegisteredKeys = 0;
             MCEnumerateAllCursorIdentifiers(^(NSString *name) {
                 if ([registeredKeys containsObject:name]) {
+                    skippedByRegisteredKeys++;
                     return; // Already registered as cape cursor
                 }
-                NSString *backupKey = backupStringForIdentifier(name);
-                NSDictionary *backupData = MCDefault(backupKey);
-                if (!backupData) {
-                    return; // No backup data available
+                // Read system cursor data directly — backups may not exist for
+                // com.apple.cursor.N identifiers since MCIsCursorRegistered returns
+                // false for them, so backupCursorForIdentifier never creates backups.
+                NSDictionary *systemData = systemCapeWithIdentifier(name);
+                if (!systemData) {
+                    return; // No system cursor data available
                 }
-                BOOL ok = applyCapeForIdentifier(backupData, name, NO, YES, YES);
+                BOOL ok = applyCapeForIdentifier(systemData, name, NO, YES, YES);
                 if (ok) {
                     systemDefaultCount++;
                 } else {
                     MMLog(YELLOW "  Failed to re-register system default %s" RESET, name.UTF8String);
                 }
             });
-            MMLog("  Re-registered %lu system default cursors with per-cursor scale", (unsigned long)systemDefaultCount);
+            MMLog("  Re-registered %lu system default cursors (skipped %lu by registeredKeys)", (unsigned long)systemDefaultCount, (unsigned long)skippedByRegisteredKeys);
         }
 
         MMLog("--- Application Summary ---");

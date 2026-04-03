@@ -108,22 +108,23 @@ NSData *pngDataForImage(id image) {
 }
 
 NSDictionary *capeWithIdentifier(NSString *identifier) {
-    
+
     NSUInteger frameCount;
     CGFloat frameDuration;
     CGPoint hotSpot;
     CGSize size;
     CFArrayRef representations;
-    bool registered = false;
-    
-    MCIsCursorRegistered(CGSMainConnectionID(), (char *)identifier.UTF8String, &registered);
-    if (!registered)
-        return nil;
-
     CGError error = 0;
+
     if (![identifier hasPrefix:@"com.apple.cursor"]) {
+        // CoreGraphics cursors: must be registered by name to read
+        bool registered = false;
+        MCIsCursorRegistered(CGSMainConnectionID(), (char *)identifier.UTF8String, &registered);
+        if (!registered)
+            return nil;
         error = CGSCopyRegisteredCursorImages(CGSMainConnectionID(), (char*)identifier.UTF8String, &size, &hotSpot, &frameCount, &frameDuration, &representations);
     } else {
+        // CoreCursor IDs: read by numeric ID directly — no name registration needed
         error = CoreCursorCopyImages(CGSMainConnectionID(), [[identifier pathExtension] intValue], &representations, &size, &hotSpot, &frameCount, &frameDuration);
     }
     
