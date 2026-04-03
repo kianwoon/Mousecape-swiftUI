@@ -4,6 +4,21 @@
 
 ## English
 
+### v1.1.4 - Bug Fix
+
+**This update fixes system default cursor scaling and improves rendering quality.**
+
+**Bug Fixes:**
+
+- Fixed system default cursors (resize, move, link, etc.) not scaling in custom per-cursor mode — they were stuck at 1x regardless of the setting
+- Fixed system cursor data not being readable for numbered cursor types after reset
+
+**Improvements:**
+
+- Added high-quality image upscaling for system cursors at 3x+ scale to reduce pixelation
+
+---
+
 ### v1.1.3 - Improvement
 
 **This update makes custom cursor scale changes apply instantly.**
@@ -248,6 +263,21 @@ For normal use, download the regular version.
 <a id="中文"></a>
 
 ## 中文
+
+### v1.1.4 - Bug 修复
+
+**本次更新修复了系统默认光标的缩放问题并改善了渲染质量。**
+
+**Bug 修复：**
+
+- 修复自定义光标缩放下系统默认光标（调整大小、移动、链接等）无法缩放的问题 — 无论设置多少倍率，始终显示为 1x
+- 修复重置后无法读取数字编号光标类型的系统数据
+
+**改进：**
+
+- 为 3 倍及以上的系统光标添加高质量图像放大，减少像素化
+
+---
 
 ### v1.1.3 - 改进
 
