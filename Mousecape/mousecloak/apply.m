@@ -17,6 +17,7 @@
 #import "scale.h"
 #import <unistd.h>
 #import <math.h>
+#import <CoreImage/CoreImage.h>
 
 static BOOL MCRegisterImagesForCursorName(NSUInteger frameCount, CGFloat frameDuration, CGPoint hotSpot, CGSize size, NSArray *images, NSString *name) {
     char *cursorName = (char *)name.UTF8String;
@@ -250,7 +251,45 @@ static NSDictionary * _Nullable systemCapeWithIdentifier(NSString *identifier) {
     return dict;
 }
 
-BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, BOOL restore, BOOL customScaleMode, BOOL skipSynonyms) {
+// Apply unsharp mask sharpening to enhance cursor edge crispness after upscaling.
+// Upscale + sharpen using Core Image for high quality.
+// Uses Lanczos resampling (much sharper than bicubic) + CISharpenLuminance
+// for perceptual edge enhancement. Falls back to CGContext if CIImage fails.
+static CGImageRef _Nullable MCUpscaleAndSharpen(CGImageRef original, NSUInteger targetW, NSUInteger targetH, CGFloat sharpness) {
+    @autoreleasepool {
+        CIImage *ciImg = [CIImage imageWithCGImage:original];
+        if (!ciImg) return NULL;
+
+        CGFloat scaleW = (CGFloat)targetW / (CGFloat)CGImageGetWidth(original);
+        CGFloat scaleH = (CGFloat)targetH / (CGFloat)CGImageGetHeight(original);
+
+        // Lanczos scale transform — significantly sharper than CGContext bicubic
+        CIFilter *lanczos = [CIFilter filterWithName:@"CILanczosScaleTransform"];
+        [lanczos setDefaults];
+        [lanczos setValue:ciImg forKey:kCIInputImageKey];
+        [lanczos setValue:@(scaleW) forKey:@"inputScale"];
+        [lanczos setValue:@(scaleH / scaleW) forKey:@"inputAspectRatio"];
+        CIImage *scaled = lanczos.outputImage;
+
+        // Sharpen luminance — perceptual edge enhancement
+        if (sharpness > 0.01) {
+            CIFilter *sharpen = [CIFilter filterWithName:@"CISharpenLuminance"];
+            [sharpen setDefaults];
+            [sharpen setValue:scaled forKey:kCIInputImageKey];
+            [sharpen setValue:@(sharpness) forKey:@"inputSharpness"];
+            scaled = sharpen.outputImage;
+        }
+
+        // Render to CGImage
+        CIContext *ciCtx = [CIContext contextWithOptions:@{kCIContextUseSoftwareRenderer: @NO}];
+        CGImageRef result = [ciCtx createCGImage:scaled fromRect:CGRectMake(0, 0, targetW, targetH)
+                                        format:kCIFormatBGRA8
+                                        colorSpace:CGColorSpaceCreateDeviceRGB()];
+        return result;
+    }
+}
+
+BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, BOOL restore, BOOL customScaleMode, BOOL skipSynonyms, BOOL isSystemDefault) {
     MMLog("=== applyCapeForIdentifier ===");
     MMLog("  Identifier: %s", identifier.UTF8String);
     MMLog("  Restore mode: %s", restore ? "YES" : "NO");
@@ -289,25 +328,11 @@ BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, BOOL res
         hotSpot.x = size.width - hotSpot.x - 1;
     }
 
-    // Calculate effective scale for representation selection
-    // Pick the representation whose pixel size best matches the target render size
-    float effectiveScale = 1.0f;
-    if (customScaleMode) {
-        NSDictionary *perCursorScales = MCDefault(MCPreferencesPerCursorScalesKey);
-        float desiredScale = [perCursorScales[identifier] floatValue];
-        if (desiredScale > 0.0f) effectiveScale = desiredScale;
-    } else {
-        effectiveScale = cursorScale();
-        if (effectiveScale <= 0.0f) effectiveScale = 1.0f;
-    }
-    NSUInteger targetPixelCount = (NSUInteger)(size.width * effectiveScale) * (NSUInteger)(size.height * effectiveScale);
-    MMLog("  Effective scale: %.2f, target pixel count: %lu", effectiveScale, (unsigned long)targetPixelCount);
-
-    // Select the representation closest to the target pixel size
-    // (instead of always picking the highest resolution)
+    // Always select the highest resolution representation available.
+    // Starting from the highest quality source ensures the system can scale
+    // down cleanly rather than upscaling from a low-res rep (which causes pixelation).
     NSBitmapImageRep *bestRep = nil;
     NSUInteger bestPixelCount = 0;
-    NSUInteger bestDistance = UINT_MAX;
     for (id object in reps) {
         CFTypeID type = CFGetTypeID((__bridge CFTypeRef)object);
         NSBitmapImageRep *rep;
@@ -319,17 +344,13 @@ BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, BOOL res
         rep = rep.retaggedSRGBSpace;
 
         NSUInteger pixelCount = (NSUInteger)rep.pixelsWide * (NSUInteger)rep.pixelsHigh;
-        NSUInteger distance = (pixelCount > targetPixelCount) ?
-            (pixelCount - targetPixelCount) : (targetPixelCount - pixelCount);
-        // Prefer closest match; tie-break by higher pixel count
-        if (distance < bestDistance || (distance == bestDistance && pixelCount > bestPixelCount)) {
-            bestDistance = distance;
+        if (pixelCount > bestPixelCount) {
             bestPixelCount = pixelCount;
             bestRep = rep;
         }
     }
-    MMLog("  Selected representation: %lupx (distance: %lu from target %lupx)",
-          (unsigned long)bestPixelCount, (unsigned long)bestDistance, (unsigned long)targetPixelCount);
+    MMLog("  Selected highest resolution representation: %lupx (%lux%lu)",
+          (unsigned long)bestPixelCount, (unsigned long)bestRep.pixelsWide, (unsigned long)bestRep.pixelsHigh);
 
     if (bestRep) {
         if (!lefty || restore) {
@@ -364,53 +385,52 @@ BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, BOOL res
         }
     }
 
-    // Upscale low-resolution images when the target size demands more pixels.
-    // System default cursors from CoreCursorCopyImages only have a single ~64px
-    // representation. Without upscaling, the OS stretches them with
-    // nearest-neighbor interpolation when registered at a larger point size,
-    // causing visible pixelation. Upscaling here with high-quality interpolation
-    // produces a sharper result. Cape cursors with multi-resolution
-    // representations (1x, 2x, 5x, 10x) are typically already close enough to
-    // the target and skip this path.
+    // Upscale + sharpen low-resolution images when the source has significantly
+    // fewer pixels than needed for crisp rendering at the target scale.
+    // Uses Core Image Lanczos resampling (much sharper than bicubic) followed by
+    // CISharpenLuminance for perceptual edge enhancement.
+    // Since we always select the highest resolution representation, this primarily
+    // helps system default cursors whose native images may be small (e.g. 64×64).
     if (images.count > 0 && bestRep) {
         NSUInteger srcPixels = (NSUInteger)bestRep.pixelsWide * (NSUInteger)bestRep.pixelsHigh;
-        if (targetPixelCount > srcPixels * 4) {
-            // More than 2x upscale needed — do it ourselves with bicubic interpolation
-            CGFloat scale = sqrt((CGFloat)targetPixelCount / (CGFloat)srcPixels);
-            NSUInteger newWidth = (NSUInteger)(bestRep.pixelsWide * scale + 0.5);
-            NSUInteger newHeight = (NSUInteger)(bestRep.pixelsHigh * scale + 0.5);
-            MMLog("  Upscaling image from %lux%lu to %lux%lu (%.1fx) for smoother rendering",
-                  (unsigned long)bestRep.pixelsWide, (unsigned long)bestRep.pixelsHigh,
-                  (unsigned long)newWidth, (unsigned long)newHeight, scale);
 
-            NSMutableArray *upscaled = [NSMutableArray arrayWithCapacity:images.count];
-            for (id imgObj in images) {
-                CGImageRef original = (__bridge CGImageRef)imgObj;
-                NSUInteger w = CGImageGetWidth(original);
-                NSUInteger h = CGImageGetHeight(original);
-                NSUInteger uw = (NSUInteger)(w * scale + 0.5);
-                NSUInteger uh = (NSUInteger)(h * scale + 0.5);
+        // Only upscale if the source image is too small to render crisply.
+        // Cape cursors stored at 2048×2048 never need upscaling.
+        // System defaults (typically 64×64) need upscaling at higher scales.
+        if (srcPixels < (2048 * 2048)) {
+            // Target: scale to at least 2048×2048 (matching cape quality).
+            // This gives the system plenty of pixel data for sub-pixel rendering
+            // at any scale up to 64x, producing results much closer to native
+            // cursor quality.
+            NSUInteger targetSide = 2048;
+            NSUInteger targetPixelCount = targetSide * targetSide;
 
-                CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
-                CGContextRef ctx = CGBitmapContextCreate(NULL, uw, uh, 8, uw * 4,
-                                                         cs,
-                                                         kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host);
-                CGColorSpaceRelease(cs);
-                if (ctx) {
-                    CGContextSetInterpolationQuality(ctx, kCGInterpolationHigh);
-                    CGContextDrawImage(ctx, CGRectMake(0, 0, uw, uh), original);
-                    CGImageRef upscaledImg = CGBitmapContextCreateImage(ctx);
-                    if (upscaledImg) {
-                        [upscaled addObject:(__bridge id)upscaledImg];
-                        CGImageRelease(upscaledImg);
-                    }
-                    CGContextRelease(ctx);
-                } else {
-                    [upscaled addObject:imgObj]; // fallback to original
+            if (targetPixelCount > srcPixels) {
+                CGFloat scaleFactor = sqrt((CGFloat)targetPixelCount / (CGFloat)srcPixels);
+                NSUInteger newWidth = (NSUInteger)(bestRep.pixelsWide * scaleFactor + 0.5);
+                NSUInteger newHeight = (NSUInteger)(bestRep.pixelsHigh * scaleFactor + 0.5);
+                // Ramp sharpening with scale: 0.3 at low zoom, up to 1.5 at high zoom
+                CGFloat sharpness = 0.3 + (scaleFactor - 1.0) * 0.2;
+                if (sharpness < 0.0) sharpness = 0.0;
+                if (sharpness > 1.5) sharpness = 1.5;
+                MMLog("  Upscale+sharpen: %lux%lu → %lux%lu (%.1fx), sharpness=%.2f",
+                      (unsigned long)bestRep.pixelsWide, (unsigned long)bestRep.pixelsHigh,
+                      (unsigned long)newWidth, (unsigned long)newHeight, scaleFactor, sharpness);
+
+                NSMutableArray *processed = [NSMutableArray arrayWithCapacity:images.count];
+                for (id imgObj in images) {
+                    CGImageRef original = (__bridge CGImageRef)imgObj;
+                    NSUInteger w = CGImageGetWidth(original);
+                    NSUInteger h = CGImageGetHeight(original);
+                    NSUInteger tw = (NSUInteger)(w * scaleFactor + 0.5);
+                    NSUInteger th = (NSUInteger)(h * scaleFactor + 0.5);
+                    CGImageRef result = MCUpscaleAndSharpen(original, tw, th, sharpness);
+                    [processed addObject:(__bridge id)(result ?: original)];
+                    if (result && result != original) CGImageRelease(result);
                 }
-            }
-            if (upscaled.count > 0) {
-                images = upscaled;
+                if (processed.count > 0) {
+                    images = processed;
+                }
             }
         }
     }
@@ -558,7 +578,7 @@ BOOL applyCape(NSDictionary *dictionary) {
                 continue;
             }
 
-            BOOL success = applyCapeForIdentifier(cape, key, NO, isCustomMode, NO);
+            BOOL success = applyCapeForIdentifier(cape, key, NO, isCustomMode, NO, NO);
             if (!success) {
                 MMLog(YELLOW "  Failed to apply cursor %s - continuing with remaining cursors..." RESET, key.UTF8String);
                 failedCount++;
@@ -597,8 +617,8 @@ BOOL applyCape(NSDictionary *dictionary) {
                 if (!systemData) {
                     return; // No system cursor data available
                 }
-                // Register with per-cursor scaling (skipSynonyms=YES for system defaults)
-                BOOL ok = applyCapeForIdentifier(systemData, name, NO, YES, YES);
+                // Register with per-cursor scaling (isSystemDefault=YES to use highest res)
+                BOOL ok = applyCapeForIdentifier(systemData, name, NO, YES, YES, YES);
                 if (ok) {
                     systemDefaultCount++;
                 } else {
@@ -750,7 +770,7 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
                 continue;
             }
 
-            BOOL success = applyCapeForIdentifier(cape, key, NO, isCustomMode, NO);
+            BOOL success = applyCapeForIdentifier(cape, key, NO, isCustomMode, NO, NO);
             if (!success) {
                 MMLog(YELLOW "  Failed to apply cursor %s" RESET, key.UTF8String);
                 failedCount++;
@@ -786,7 +806,8 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
                 if (!systemData) {
                     return; // No system cursor data available
                 }
-                BOOL ok = applyCapeForIdentifier(systemData, name, NO, YES, YES);
+                // Register with per-cursor scaling (isSystemDefault=YES to use highest res)
+                BOOL ok = applyCapeForIdentifier(systemData, name, NO, YES, YES, YES);
                 if (ok) {
                     systemDefaultCount++;
                 } else {

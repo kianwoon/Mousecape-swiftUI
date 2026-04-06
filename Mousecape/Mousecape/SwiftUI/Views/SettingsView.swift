@@ -653,11 +653,11 @@ struct CustomScaleView: View {
                                 perCursorScales[selected.rawValue] = newValue
                                 savePerCursorScales()
                             }
-                        ), in: 0.5...16.0, step: 0.1) {
+                        ), in: 0.5...64.0, step: 0.5) {
                         } minimumValueLabel: {
                             Text("0.5x")
                         } maximumValueLabel: {
-                            Text("16.0x")
+                            Text("64.0x")
                         } onEditingChanged: { isEditing in
                             if !isEditing {
                                 recalculateMaxScaleAndApply()
