@@ -48,20 +48,24 @@ static BOOL MCRegisterImagesForCursorName(NSUInteger frameCount, CGFloat frameDu
 #endif
 
     // Validate and clamp hot spot to valid range to prevent CGError=1000
-    // The hot spot coordinates must be within cursor dimensions (0 <= hotSpot < MCMaxHotspotValue)
+    // Hot spot coordinates must be within the cursor's actual registration size
+    // (0 <= hotSpot < size). For standard 32x32 cursors this is effectively 31.99,
+    // but custom-scaled cursors may register at larger point sizes (e.g. 640x640 at 20x).
+    CGFloat maxX = (size.width > 0) ? size.width - 0.01 : MCMaxHotspotValue;
+    CGFloat maxY = (size.height > 0) ? size.height - 0.01 : MCMaxHotspotValue;
     BOOL clamped = NO;
     if (hotSpot.x < 0) {
         hotSpot.x = 0;
         clamped = YES;
-    } else if (hotSpot.x > MCMaxHotspotValue) {
-        hotSpot.x = MCMaxHotspotValue;
+    } else if (hotSpot.x > maxX) {
+        hotSpot.x = maxX;
         clamped = YES;
     }
     if (hotSpot.y < 0) {
         hotSpot.y = 0;
         clamped = YES;
-    } else if (hotSpot.y > MCMaxHotspotValue) {
-        hotSpot.y = MCMaxHotspotValue;
+    } else if (hotSpot.y > maxY) {
+        hotSpot.y = maxY;
         clamped = YES;
     }
 
