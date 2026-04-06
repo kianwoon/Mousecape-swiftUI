@@ -1,3 +1,16 @@
+### v1.2.0 - UX Improvement
+
+**This update gives you full control over when cursors are applied.**
+
+**What's Changed:**
+
+- Settings changes (scale, handedness, visual effects) no longer auto-apply cursors — you decide when to apply
+- Importing a cape no longer auto-applies — it selects the cape so you can preview it first
+- To apply a cape: double-click it, use the toolbar Apply button, or right-click and choose Apply
+- The menu bar helper still re-applies your cursor automatically on display changes and wake-from-sleep
+
+---
+
 ### v1.1.5 - Bug Fix
 
 **This update significantly improves system cursor quality at high scale settings.**
