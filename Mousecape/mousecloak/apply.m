@@ -230,25 +230,41 @@ static NSDictionary * _Nullable systemCapeWithIdentifier(NSString *identifier) {
         return nil;
     }
 
-    // CoreCursorCopyImages returns size={0,0} for numbered cursors (com.apple.cursor.N).
-    // Infer point size from image dimensions.
-    if (size.width < 1.0 || size.height < 1.0) {
-        CGImageRef img = (__bridge CGImageRef)((__bridge NSArray *)representations).firstObject;
-        if (img) {
-            CGFloat inferredW = (CGFloat)CGImageGetWidth(img) / 2.0;
-            CGFloat inferredH = (CGFloat)CGImageGetHeight(img) / 2.0;
-            MMLog("  Inferred size for %s from image %.0fx%.0f -> %.1fx%.1f pt",
-                  identifier.UTF8String,
-                  (CGFloat)CGImageGetWidth(img), (CGFloat)CGImageGetHeight(img),
-                  inferredW, inferredH);
-            size = CGSizeMake(inferredW, inferredH);
+    // Determine the base point size for this cursor.
+    // CoreCursorCopyImages may return size={0,0} for numbered cursors, or a scaled
+    // size when CGSSetCursorScale is boosted for high-res extraction.
+    // We always want the NATIVE base point size (32×32 for standard cursors) so
+    // that applyCapeForIdentifier can scale it by the per-cursor ratio.
+    if (size.width < 1.0 || size.height < 1.0 || size.width > 64.0 || size.height > 64.0) {
+        CGFloat origW = size.width;
+        CGFloat origH = size.height;
+        CGPoint origHotSpot = hotSpot;
+        // Normalize hotspot from the API-returned coordinate space to 32×32 base
+        if (origW > 1.0 && origH > 1.0) {
+            hotSpot = CGPointMake(hotSpot.x * (32.0 / origW), hotSpot.y * (32.0 / origH));
         }
+        size = CGSizeMake(32.0, 32.0);
+        MMLog("  Normalized size/hotspot for %s: (%.0fx%.0f, hs=%.1f,%.1f) → (32x32, hs=%.1f,%.1f)",
+              identifier.UTF8String,
+              origW, origH, origHotSpot.x, origHotSpot.y,
+              hotSpot.x, hotSpot.y);
     }
 
     NSDictionary *dict = @{MCCursorDictionaryFrameCountKey: @(frameCount), MCCursorDictionaryFrameDuratiomKey: @(frameDuration), MCCursorDictionaryHotSpotXKey: @(hotSpot.x), MCCursorDictionaryHotSpotYKey: @(hotSpot.y), MCCursorDictionaryPointsWideKey: @(size.width), MCCursorDictionaryPointsHighKey: @(size.height), MCCursorDictionaryRepresentationsKey: (__bridge NSArray *)representations};
 
     CFRelease(representations);
     return dict;
+}
+
+// Shared CIContext for all upscale+sharpen operations (heavyweight GPU object,
+// creating one per frame per cursor is wasteful).
+static CIContext *MCSharedCIContext() {
+    static CIContext *ctx = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        ctx = [CIContext contextWithOptions:@{kCIContextUseSoftwareRenderer: @NO}];
+    });
+    return ctx;
 }
 
 // Apply unsharp mask sharpening to enhance cursor edge crispness after upscaling.
@@ -280,11 +296,12 @@ static CGImageRef _Nullable MCUpscaleAndSharpen(CGImageRef original, NSUInteger 
             scaled = sharpen.outputImage;
         }
 
-        // Render to CGImage
-        CIContext *ciCtx = [CIContext contextWithOptions:@{kCIContextUseSoftwareRenderer: @NO}];
-        CGImageRef result = [ciCtx createCGImage:scaled fromRect:CGRectMake(0, 0, targetW, targetH)
-                                        format:kCIFormatBGRA8
-                                        colorSpace:CGColorSpaceCreateDeviceRGB()];
+        // Render to CGImage (release CGColorSpace to avoid leak)
+        CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+        CGImageRef result = [MCSharedCIContext() createCGImage:scaled fromRect:CGRectMake(0, 0, targetW, targetH)
+                                                        format:kCIFormatBGRA8
+                                                     colorSpace:cs];
+        CGColorSpaceRelease(cs);
         return result;
     }
 }
@@ -603,6 +620,17 @@ BOOL applyCape(NSDictionary *dictionary) {
             }
             MMLog("  registeredKeys count (successfully applied): %lu of %lu total cape entries",
                   (unsigned long)registeredKeys.count, (unsigned long)cursors.count);
+
+            // Temporarily boost cursor scale so CoreCursorCopyImages returns
+            // high-resolution system cursor images (same trick as dumpCursorsToFile).
+            // At scale=1.0, system cursors come back as tiny 64×64 bitmaps.
+            // At scale=32.0, the system renders them at 32× native → ~2048px images.
+            float savedScale = cursorScale();
+            float extractScale = 64.0f;
+            MMLog("  Boosting cursor scale to %.1f for high-res extraction (was %.1f)", extractScale, savedScale);
+            CGSSetCursorScale(CGSMainConnectionID(), extractScale);
+            CGSHideCursor(CGSMainConnectionID());
+
             __block NSUInteger systemDefaultCount = 0;
             __block NSUInteger skippedByRegisteredKeys = 0;
             MCEnumerateAllCursorIdentifiers(^(NSString *name) {
@@ -610,14 +638,10 @@ BOOL applyCape(NSDictionary *dictionary) {
                     skippedByRegisteredKeys++;
                     return; // Already registered as cape cursor
                 }
-                // Read system cursor data directly via CoreCursorSet/CoreCursorCopyImages.
-                // Backups may not exist for com.apple.cursor.N identifiers since
-                // MCIsCursorRegistered returns false for them.
                 NSDictionary *systemData = systemCapeWithIdentifier(name);
                 if (!systemData) {
                     return; // No system cursor data available
                 }
-                // Register with per-cursor scaling (isSystemDefault=YES to use highest res)
                 BOOL ok = applyCapeForIdentifier(systemData, name, NO, YES, YES, YES);
                 if (ok) {
                     systemDefaultCount++;
@@ -625,6 +649,12 @@ BOOL applyCape(NSDictionary *dictionary) {
                     MMLog(YELLOW "  Failed to re-register system default %s" RESET, name.UTF8String);
                 }
             });
+
+            // Restore the original scale
+            MMLog("  Restoring cursor scale to %.1f after extraction", savedScale);
+            CGSSetCursorScale(CGSMainConnectionID(), savedScale);
+            CGSShowCursor(CGSMainConnectionID());
+
             MMLog("  Re-registered %lu system default cursors (skipped %lu by registeredKeys)", (unsigned long)systemDefaultCount, (unsigned long)skippedByRegisteredKeys);
         }
 
@@ -792,6 +822,14 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
                     [registeredKeys addObject:key];
                 }
             }
+
+            // Temporarily boost cursor scale for high-res extraction
+            float savedScale = cursorScale();
+            float extractScale = 64.0f;
+            MMLog("  Boosting cursor scale to %.1f for high-res extraction (was %.1f)", extractScale, savedScale);
+            CGSSetCursorScale(CGSMainConnectionID(), extractScale);
+            CGSHideCursor(CGSMainConnectionID());
+
             __block NSUInteger systemDefaultCount = 0;
             __block NSUInteger skippedByRegisteredKeys = 0;
             MCEnumerateAllCursorIdentifiers(^(NSString *name) {
@@ -799,14 +837,10 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
                     skippedByRegisteredKeys++;
                     return; // Already registered as cape cursor
                 }
-                // Read system cursor data directly — backups may not exist for
-                // com.apple.cursor.N identifiers since MCIsCursorRegistered returns
-                // false for them, so backupCursorForIdentifier never creates backups.
                 NSDictionary *systemData = systemCapeWithIdentifier(name);
                 if (!systemData) {
                     return; // No system cursor data available
                 }
-                // Register with per-cursor scaling (isSystemDefault=YES to use highest res)
                 BOOL ok = applyCapeForIdentifier(systemData, name, NO, YES, YES, YES);
                 if (ok) {
                     systemDefaultCount++;
@@ -814,6 +848,12 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
                     MMLog(YELLOW "  Failed to re-register system default %s" RESET, name.UTF8String);
                 }
             });
+
+            // Restore the original scale
+            MMLog("  Restoring cursor scale to %.1f after extraction", savedScale);
+            CGSSetCursorScale(CGSMainConnectionID(), savedScale);
+            CGSShowCursor(CGSMainConnectionID());
+
             MMLog("  Re-registered %lu system default cursors (skipped %lu by registeredKeys)", (unsigned long)systemDefaultCount, (unsigned long)skippedByRegisteredKeys);
         }
 
