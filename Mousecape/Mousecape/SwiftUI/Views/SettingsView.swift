@@ -124,12 +124,6 @@ struct GeneralSettingsView: View {
                         // Restore global scale
                         _ = setCursorScale(Float(cursorScale))
                         saveCursorScale(cursorScale)
-                        if let cape = appState.appliedCape {
-                            appState.applyCape(cape)
-                        }
-                    } else {
-                        // Apply custom scales
-                        applyCustomScales()
                     }
                 }
 
@@ -166,9 +160,6 @@ struct GeneralSettingsView: View {
                     set: { newValue in
                         isLeftHanded = newValue
                         saveHandedness(newValue)
-                        if let cape = appState.appliedCape {
-                            appState.applyCape(cape)
-                        }
                     }
                 )) {
                     Text("Right Hand").tag(false)
@@ -281,15 +272,7 @@ struct GeneralSettingsView: View {
         // Set direct C variable for reliable in-process communication with ObjC
         setCustomScaleMode(mode == .custom)
     }
-
-    /// Apply custom per-cursor scales
-    private func applyCustomScales() {
-        guard let cape = appState.appliedCape else { return }
-        appState.applyCape(cape)
-    }
 }
-
-// MARK: - Appearance Settings
 
 struct AppearanceSettingsView: View {
     @AppStorage("showPreviewAnimations") private var showPreviewAnimations = true
@@ -329,9 +312,6 @@ struct AppearanceSettingsView: View {
                 Toggle("Inner Shadow", isOn: $innerShadowEnabled)
                     .onChange(of: innerShadowEnabled) { _, newValue in
                         saveInnerShadow(newValue)
-                        if let cape = appState.appliedCape {
-                            appState.applyCape(cape)
-                        }
                     }
 
                 Text("Adds an inner shadow effect to cursor edges for better visibility.")
@@ -341,9 +321,6 @@ struct AppearanceSettingsView: View {
                 Toggle("Outer Glow", isOn: $outerGlowEnabled)
                     .onChange(of: outerGlowEnabled) { _, newValue in
                         saveOuterGlow(newValue)
-                        if let cape = appState.appliedCape {
-                            appState.applyCape(cape)
-                        }
                     }
 
                 Text("Adds a soft glow around the cursor for better visibility on any background.")
@@ -661,9 +638,6 @@ struct CustomScaleView: View {
                         } onEditingChanged: { isEditing in
                             if !isEditing {
                                 recalculateMaxScaleAndApply()
-                                if let cape = appState.appliedCape {
-                                    appState.applyCape(cape)
-                                }
                                 hasUnsavedScaleChanges = false
                             }
                         }
@@ -672,9 +646,6 @@ struct CustomScaleView: View {
                     HStack(spacing: 12) {
                         Button("Reset to 1.0x") {
                             updateScale(for: selected, to: 1.0)
-                            if let cape = appState.appliedCape {
-                                appState.applyCape(cape)
-                            }
                             hasUnsavedScaleChanges = false
                         }
                         .buttonStyle(.bordered)
@@ -691,9 +662,6 @@ struct CustomScaleView: View {
                     HStack {
                         Button("Reset All to 1.0x") {
                             resetAllScales()
-                            if let cape = appState.appliedCape {
-                                appState.applyCape(cape)
-                            }
                             hasUnsavedScaleChanges = false
                         }
                         .buttonStyle(.borderedProminent)
@@ -720,17 +688,12 @@ struct CustomScaleView: View {
             hasUnsavedScaleChanges = false
         }
         .onDisappear {
-            if hasUnsavedScaleChanges, let cape = appState.appliedCape {
-                appState.applyCape(cape)
-            }
+            // Scale preferences are already saved — user double-clicks cape to apply
         }
         .alert("Set All Scales", isPresented: $showSetAllAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Set All") {
                 setAllScales(to: setAllValue)
-                if let cape = appState.appliedCape {
-                    appState.applyCape(cape)
-                }
                 hasUnsavedScaleChanges = false
             }
         } message: {

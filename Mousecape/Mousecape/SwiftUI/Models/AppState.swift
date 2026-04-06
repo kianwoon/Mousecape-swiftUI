@@ -429,11 +429,10 @@ final class AppState: @unchecked Sendable {
             let importedCape = capes.first { $0.name == capeName }
                 ?? capes.first { $0.name.hasPrefix(capeName) }
 
-            // Auto-apply the newly imported cape
+            // Auto-select the newly imported cape (user double-clicks to apply)
             if let importedCape = importedCape {
-                applyCape(importedCape)
                 selectedCape = importedCape
-                // Single combined toast — applyCape already showed its own toast on success
+                showToastNotification("\"\(capeName)\" \(String(localized: "has been imported."))")
             } else {
                 showToastNotification("\"\(capeName)\" \(String(localized: "has been imported."))")
             }
