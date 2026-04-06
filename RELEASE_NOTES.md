@@ -277,27 +277,6 @@ Due to macOS system limitations, Mousecape has the following restrictions:
 The Debug version has no functional differences from the regular version, it only includes logging for error tracking.
 For normal use, download the regular version.
 
-<a id="中文"></a>
-
-## 中文
-
-### v1.1.5 - Bug 修复
-
-**本次更新显著改善了高缩放倍率下系统光标的显示质量。**
-
-**Bug 修复：**
-
-- 修复高缩放倍率下光标像素化问题 — 现在始终选择 cape 文件中最高分辨率的图像
-- 修复系统光标（调整大小、移动、链接等）在 3 倍及以上缩放时模糊的问题 — 现在以 64 倍分辨率直接从 macOS 提取
-
-**改进：**
-
-- 添加 Lanczos + 锐化放大管线（Core Image），光标渲染更清晰
-- 自定义缩放滑块范围扩展至 64 倍（之前为 16 倍）
-- 修复光标放大管线的内存泄漏
-
----
-
 ### v1.1.4 - Bug 修复
 
 **本次更新修复了系统默认光标的缩放问题并改善了渲染质量。**
