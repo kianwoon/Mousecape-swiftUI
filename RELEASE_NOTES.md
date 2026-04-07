@@ -1,3 +1,14 @@
+### v1.2.2 - Bug Fix
+
+**This update fixes cursor images reverting to the old version after editing.**
+
+**Bug Fixes:**
+
+- Fixed cursor image reverting to old version after changing hotspot and re-applying
+- Fixed stale image data persisting at unused scales after importing a new cursor image
+
+---
+
 ### v1.2.1 - Bug Fix
 
 **This update fixes drag-and-drop image import and cursor hotspot issues.**

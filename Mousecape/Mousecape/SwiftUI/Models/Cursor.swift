@@ -124,6 +124,15 @@ final class Cursor: Identifiable, Hashable {
         invalidateImageCache()
     }
 
+    /// Remove all scale representations (used before importing a new image
+    /// to ensure stale data at other scales doesn't persist)
+    func removeAllRepresentations() {
+        for scale in CursorScale.allCases {
+            objcCursor.removeRepresentation(for: MCCursorScale(rawValue: UInt(scale.rawValue)) ?? .scale100)
+        }
+        invalidateImageCache()
+    }
+
     /// Check if a representation exists for scale
     func hasRepresentation(for scale: CursorScale) -> Bool {
         representation(for: scale) != nil

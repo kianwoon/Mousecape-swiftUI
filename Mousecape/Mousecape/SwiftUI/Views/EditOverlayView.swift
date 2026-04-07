@@ -1102,6 +1102,7 @@ struct CursorPreviewDropZone: View {
                 appState.showImageImportWarning = true
             }
 
+            cursor.removeAllRepresentations()
             cursor.setRepresentation(NSBitmapImageRep(cgImage: result.cgImage), for: targetScale)
             cursor.size = NSSize(width: 32, height: 32)
             appState.markAsChanged()
@@ -1152,6 +1153,7 @@ struct CursorPreviewDropZone: View {
                 }
             }
 
+            cursor.removeAllRepresentations()
             cursor.setRepresentation(NSBitmapImageRep(cgImage: result.cgImage), for: targetScale)
             cursor.size = NSSize(width: 32, height: 32)
             cursor.frameCount = result.frameCount
@@ -1205,6 +1207,7 @@ struct CursorPreviewDropZone: View {
 
             cursor.hotSpot = NSPoint(x: result.hotspotX, y: result.hotspotY)
             cursor.size = NSSize(width: 32, height: 32)
+            cursor.removeAllRepresentations()
             cursor.setRepresentation(NSBitmapImageRep(cgImage: result.cgImage), for: targetScale)
 
             appState.markAsChanged()
