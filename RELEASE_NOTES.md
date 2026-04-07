@@ -1,3 +1,14 @@
+### v1.2.1 - Bug Fix
+
+**This update fixes drag-and-drop image import and cursor hotspot issues.**
+
+**Bug Fixes:**
+
+- Fixed drag-and-drop image import not working in edit mode — you can now drag images onto cursor types to set or replace them
+- Fixed cursor hotspot position being incorrect at high scale settings (3x and above)
+
+---
+
 ### v1.2.0 - UX Improvement
 
 **This update gives you full control over when cursors are applied.**
