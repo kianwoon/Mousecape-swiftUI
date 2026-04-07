@@ -1055,9 +1055,15 @@ struct CursorPreviewDropZone: View {
     }
 
     private func loadImage(from url: URL) {
-        guard url.startAccessingSecurityScopedResource() else {
-            debugLog("Failed to access security scoped resource: \(url)")
-            return
+        // Security-scoped access is only needed for fileImporter URLs (sandboxed).
+        // Drag-and-drop from Finder provides regular file URLs that don't require it.
+        // In a non-sandboxed app, startAccessingSecurityScopedResource() returns false
+        // for non-scoped URLs, which would silently block drag-and-drop imports.
+        let needsScopedAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if needsScopedAccess {
+                url.stopAccessingSecurityScopedResource()
+            }
         }
 
         // Check if it's a Windows cursor file
@@ -1073,15 +1079,13 @@ struct CursorPreviewDropZone: View {
             return
         }
 
-        // Static image (PNG/JPEG/TIFF): read data while we have security access
+        // Static image (PNG/JPEG/TIFF): read data
         guard let data = try? Data(contentsOf: url) else {
-            url.stopAccessingSecurityScopedResource()
             debugLog("Failed to load image from: \(url)")
             appState.validationErrorMessage = String(localized:"Unsupported image format. Supported formats: PNG, JPEG, TIFF, GIF, CUR, ANI.")
             appState.showValidationError = true
             return
         }
-        url.stopAccessingSecurityScopedResource()
 
         isLoadingImage = true
         Task {
@@ -1120,13 +1124,12 @@ struct CursorPreviewDropZone: View {
     // MARK: - GIF Import
 
     /// Load an animated GIF file and extract all frames
+    /// Note: Security-scoped access is managed by the caller (loadImage)
     private func loadGIFImage(from url: URL) {
         guard let data = try? Data(contentsOf: url) else {
             debugLog("Failed to read GIF data from: \(url)")
-            url.stopAccessingSecurityScopedResource()
             return
         }
-        url.stopAccessingSecurityScopedResource()
 
         isLoadingImage = true
         Task {
@@ -1169,19 +1172,18 @@ struct CursorPreviewDropZone: View {
     // MARK: - Windows Cursor Import
 
     /// Load a Windows cursor file (.cur or .ani)
+    /// Note: Security-scoped access is managed by the caller (loadImage)
     private func loadWindowsCursor(from url: URL) {
-        // Parse and convert while we still have security access
+        // Parse and convert
         let convertResult: WindowsCursorResult
         do {
             convertResult = try WindowsCursorConverter.shared.convert(fileURL: url)
         } catch {
-            url.stopAccessingSecurityScopedResource()
             debugLog("Failed to convert Windows cursor: \(error.localizedDescription)")
             appState.imageImportWarningMessage = String(format: String(localized: "Failed to import Windows cursor: %@"), error.localizedDescription)
             appState.showImageImportWarning = true
             return
         }
-        url.stopAccessingSecurityScopedResource()
 
         isLoadingImage = true
         Task {
