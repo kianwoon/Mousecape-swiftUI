@@ -37,8 +37,8 @@ A free macOS cursor manager that allows you to easily replace Mac system pointer
 
 ## Interface Display
 
-![light](Screenshot/Light_en.gif#gh-light-mode-only)
-![dark](Screenshot/Dark_en.gif#gh-dark-mode-only)
+<img width="895" height="789" alt="Screenshot 2026-04-09 at 12 33 18 AM" src="https://github.com/user-attachments/assets/c6647e24-1d01-4b4a-8d17-759d5f24cedd" />
+
 
 > The cursor theme "Kiriko" shown in the screenshots is created by [ArakiCC](https://space.bilibili.com/14913641), available in the example files.
 
