@@ -269,6 +269,16 @@ The pointer must use the default color scheme (white outline, black fill) for Mo
 
 </details>
 
+## Support
+
+If you find Mousecape useful, consider buying me a coffee!
+
+<a href="https://ko-fi.com/kianwoon">
+  <img src="Screenshot/qrcode.png" width="160" alt="Buy me a coffee on Ko-fi">
+</a>
+
+[ko-fi.com/kianwoon](https://ko-fi.com/kianwoon)
+
 ## Acknowledgments
 
 - Original project created by [Alex Zielenski](https://github.com/alexzielenski)
