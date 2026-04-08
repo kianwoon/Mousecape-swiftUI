@@ -29,6 +29,9 @@
 // Session monitor (listen for user/display changes)
 #import "listen.h"
 
+// Cursor application and system default refresh
+#import "apply.h"
+
 // Cape creation and dump utilities
 #import "create.h"
 

@@ -19,6 +19,7 @@ extern BOOL applyCapeForIdentifier(NSDictionary *cursor, NSString *identifier, B
 extern BOOL applyCape(NSDictionary *dictionary);
 extern NSDictionary *applyCapeWithResult(NSDictionary *dictionary);
 extern BOOL applyCapeAtPath(NSString *path);
+extern void refreshSystemDefaultCursors(void);
 
 NS_ASSUME_NONNULL_END
 

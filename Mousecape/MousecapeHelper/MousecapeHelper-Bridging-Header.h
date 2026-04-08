@@ -19,6 +19,7 @@ void startSessionMonitor(void);
 
 // Cursor management
 void ResetCursorsToDefault(void);
+void refreshSystemDefaultCursors(void);
 
 // Preferences (returns C string, caller must not free)
 const char* MCPrefsGetLastAppliedCapePath(void);

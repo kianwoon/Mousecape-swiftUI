@@ -1,3 +1,15 @@
+### v1.2.3 - Bug Fix
+
+**This update fixes cursor pixelation when changing the cursor scale without a cape applied.**
+
+**Bug Fixes:**
+
+- Fixed system default cursors becoming pixelated when increasing the cursor scale without a custom cape applied
+- Fixed cursor pixelation persisting after display reconfiguration or waking from sleep when no cape is applied
+- Fixed cursor pixelation on app startup when a non-default scale was saved
+
+---
+
 ### v1.2.2 - Bug Fix
 
 **This update fixes cursor images reverting to the old version after editing.**

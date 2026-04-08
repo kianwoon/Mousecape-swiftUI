@@ -243,6 +243,8 @@ extension MousecloakCLI {
 
             if let scale = scaleValue {
                 setCursorScale(scale)
+                // Refresh system defaults to prevent pixelation at non-1.0 scale
+                refreshSystemDefaultCursors()
             } else {
                 print("\(cursorScale())")
             }

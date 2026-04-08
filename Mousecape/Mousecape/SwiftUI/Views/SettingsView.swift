@@ -125,6 +125,8 @@ struct GeneralSettingsView: View {
                         _ = setCursorScale(Float(cursorScale))
                         saveCursorScale(cursorScale)
                     }
+                    // Refresh system defaults at the new scale/mode
+                    refreshSystemDefaultCursors()
                 }
 
                 if scaleMode == .global {
@@ -135,12 +137,15 @@ struct GeneralSettingsView: View {
                             Text("0.5x")
                         } maximumValueLabel: {
                             Text("16.0x")
+                        } onEditingChanged: { editing in
+                            if !editing {
+                                // Expensive: re-register system defaults only when drag ends
+                                refreshSystemDefaultCursors()
+                            }
                         }
                         .onChange(of: cursorScale) { _, newValue in
                             saveCursorScale(newValue)
                             _ = setCursorScale(Float(newValue))
-                            // In global mode, CGSSetCursorScale already handles scaling
-                            // — no need to re-register all cursors
                         }
 
                         Text("Scale changes are applied immediately.")
@@ -454,7 +459,7 @@ struct AdvancedSettingsView: View {
                        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
                         Text("Mousecape v\(version) (\(build))")
                     } else {
-                        Text("Mousecape v1.2.2")
+                        Text("Mousecape v1.2.3")
                     }
                 }
                 LabeledContent("System Requirements") {
@@ -751,6 +756,8 @@ struct CustomScaleView: View {
         CFPreferencesAppSynchronize(Self.preferenceDomain as CFString)
         // Set system scale immediately for visual feedback (lightweight CGS call)
         _ = setCursorScale(Float(baseScale))
+        // Refresh system defaults with per-cursor scaling to prevent pixelation
+        refreshSystemDefaultCursors()
         // Mark that a full re-apply is needed on screen exit (expensive — re-registers all cursors)
         hasUnsavedScaleChanges = true
     }

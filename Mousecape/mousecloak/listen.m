@@ -113,18 +113,8 @@ static void UserSpaceChanged(SCDynamicStoreRef	store, CFArrayRef changedKeys, vo
     MMLog(BOLD GREEN "User Space Changed to %s, applying cape..." RESET, [(__bridge NSString *)currentConsoleUser UTF8String]);
     MMLog("Cape path: %s", appliedPath ? appliedPath.UTF8String : "(none)");
 
-    // Only attempt to apply if there's a valid cape path
-    if (appliedPath) {
-        BOOL success = applyCapeAtPath(appliedPath);
-        MMLog("Apply result: %s", success ? "SUCCESS" : "FAILED");
-        if (!success) {
-            MMLog(BOLD RED "Application of cape failed" RESET);
-        }
-    } else {
-        MMLog("No cape configured for user");
-    }
-
-    // Restore scale according to the active mode
+    // Restore scale FIRST — refreshSystemDefaultCursors reads cursorScale() internally,
+    // so the scale must be correct before the refresh runs.
     if (customScaleMode()) {
         float maxScale = [MCDefault(@"MCCustomMaxScale") floatValue];
         if (maxScale <= 0.0f) maxScale = 1.0f;
@@ -135,6 +125,19 @@ static void UserSpaceChanged(SCDynamicStoreRef	store, CFArrayRef changedKeys, vo
         if (globalScale < 0.5f || globalScale > 16.0f) globalScale = 1.0f;
         MMLog("Session monitor: restoring global scale %.2f", globalScale);
         setCursorScale(globalScale);
+    }
+
+    // Only attempt to apply if there's a valid cape path
+    if (appliedPath) {
+        BOOL success = applyCapeAtPath(appliedPath);
+        MMLog("Apply result: %s", success ? "SUCCESS" : "FAILED");
+        if (!success) {
+            MMLog(BOLD RED "Application of cape failed" RESET);
+        }
+    } else {
+        MMLog("No cape configured for user");
+        // Refresh system defaults at the current scale to prevent pixelation
+        refreshSystemDefaultCursors();
     }
 
     CFRelease(currentConsoleUser);
@@ -155,11 +158,9 @@ void reconfigurationCallback(CGDirectDisplayID display,
 
     NSString *capePath = appliedCapePathForUser(NSUserName());
     MMLog("Cape path: %s", capePath ? capePath.UTF8String : "(none)");
-    if (capePath) {
-        BOOL success = applyCapeAtPath(capePath);
-        MMLog("Apply result: %s", success ? "SUCCESS" : "FAILED");
-    }
-    // Restore scale according to the active mode (same logic as UserSpaceChanged)
+
+    // Restore scale FIRST — refreshSystemDefaultCursors reads cursorScale() internally,
+    // so the scale must be correct before the refresh runs.
     if (customScaleMode()) {
         float maxScale = [MCDefault(@"MCCustomMaxScale") floatValue];
         if (maxScale <= 0.0f) maxScale = 1.0f;
@@ -170,6 +171,14 @@ void reconfigurationCallback(CGDirectDisplayID display,
         if (globalScale < 0.5f || globalScale > 16.0f) globalScale = 1.0f;
         MMLog("Reconfig: restoring global scale %.2f", globalScale);
         setCursorScale(globalScale);
+    }
+
+    if (capePath) {
+        BOOL success = applyCapeAtPath(capePath);
+        MMLog("Apply result: %s", success ? "SUCCESS" : "FAILED");
+    } else {
+        // Refresh system defaults at the current scale to prevent pixelation
+        refreshSystemDefaultCursors();
     }
 }
 
@@ -233,7 +242,8 @@ void listener(void) {
         BOOL applySuccess = applyCapeAtPath(initialCapePath);
         MMLog("Initial apply result: %s", applySuccess ? "SUCCESS" : "FAILED");
     } else {
-        MMLog("No cape configured - running in standby mode");
+        MMLog("No cape configured - refreshing system defaults at current scale");
+        refreshSystemDefaultCursors();
     }
     // Restore scale according to the active mode
     if (customScaleMode()) {
@@ -312,7 +322,8 @@ void startSessionMonitor(void) {
         BOOL applySuccess = applyCapeAtPath(initialCapePath);
         MMLog("Initial apply result: %s", applySuccess ? "SUCCESS" : "FAILED");
     } else {
-        MMLog("No cape configured - running in standby mode");
+        MMLog("No cape configured - refreshing system defaults at current scale");
+        refreshSystemDefaultCursors();
     }
     // Restore scale according to the active mode
     if (customScaleMode()) {

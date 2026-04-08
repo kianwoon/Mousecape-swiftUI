@@ -8,6 +8,7 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/AppKit.h>
 #import "../mousecloak/listen.h"
+#import "../mousecloak/apply.h"
 #import "../mousecloak/MCLogger.h"
 #import "../mousecloak/MCPrefs.h"
 #import "../mousecloak/restore.h"

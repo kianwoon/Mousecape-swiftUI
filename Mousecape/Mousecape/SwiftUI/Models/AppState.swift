@@ -280,6 +280,10 @@ final class AppState: @unchecked Sendable {
                 _ = setCursorScale(1.0)
             }
         }
+
+        // Refresh system defaults at the restored scale to prevent pixelation
+        // when no cape is applied (WindowServer caches cursor images)
+        refreshSystemDefaultCursors()
     }
 
     // MARK: - Cape Actions

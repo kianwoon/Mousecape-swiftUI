@@ -608,11 +608,13 @@ BOOL applyCape(NSDictionary *dictionary) {
             }
         }
 
-        // In custom mode with CGSSetCursorScale=1.0, explicitly re-register system
-        // default cursors (not in cape) with per-cursor scaling so they render at
-        // their desired scale too.
-        if (isCustomMode) {
-            MMLog("--- Re-registering system defaults with per-cursor scale ---");
+        // Re-register system default cursors not covered by the cape.
+        // In custom mode: per-cursor scale is applied via the ratio in applyCapeForIdentifier.
+        // In global mode: CGSSetCursorScale handles uniform scaling, but we still need to
+        // register the defaults explicitly — otherwise the WindowServer caches stale images
+        // and CGSSetCursorScale alone causes pixelation for unregistered cursor types.
+        {
+            MMLog("--- Re-registering system defaults (%s mode) ---", isCustomMode ? "custom" : "global");
             // Only include cursors that were SUCCESSFULLY applied (have images).
             // Skipped cursors (no image data in cape) must still be handled.
             NSMutableSet *registeredKeys = [NSMutableSet set];
@@ -628,10 +630,9 @@ BOOL applyCape(NSDictionary *dictionary) {
             // Temporarily boost cursor scale so CoreCursorCopyImages returns
             // high-resolution system cursor images (same trick as dumpCursorsToFile).
             // At scale=1.0, system cursors come back as tiny 64×64 bitmaps.
-            // At scale=32.0, the system renders them at 32× native → ~2048px images.
-            float savedScale = cursorScale();
+            // At scale=64.0, the system renders them at 64× native → ~2048px images.
             float extractScale = 64.0f;
-            MMLog("  Boosting cursor scale to %.1f for high-res extraction (was %.1f)", extractScale, savedScale);
+            MMLog("  Boosting cursor scale to %.1f for high-res extraction", extractScale);
             CGSSetCursorScale(CGSMainConnectionID(), extractScale);
             CGSHideCursor(CGSMainConnectionID());
 
@@ -646,7 +647,7 @@ BOOL applyCape(NSDictionary *dictionary) {
                 if (!systemData) {
                     return; // No system cursor data available
                 }
-                BOOL ok = applyCapeForIdentifier(systemData, name, NO, YES, YES, YES);
+                BOOL ok = applyCapeForIdentifier(systemData, name, NO, isCustomMode, YES, YES);
                 if (ok) {
                     systemDefaultCount++;
                 } else {
@@ -654,7 +655,7 @@ BOOL applyCape(NSDictionary *dictionary) {
                 }
             });
 
-            // Restore the original scale
+            // Restore the original scale (savedScale from line 539, before resetAllCursors)
             MMLog("  Restoring cursor scale to %.1f after extraction", savedScale);
             CGSSetCursorScale(CGSMainConnectionID(), savedScale);
             CGSShowCursor(CGSMainConnectionID());
@@ -814,11 +815,13 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
             }
         }
 
-        // In custom mode with balanced baseScale, system default cursors (not in cape)
-        // would render at baseScale × native instead of their per-cursor scale.
-        // Fix: explicitly re-register them with per-cursor scaling.
-        if (isCustomMode) {
-            MMLog("--- Re-registering system defaults with per-cursor scale ---");
+        // Re-register system default cursors not covered by the cape.
+        // In custom mode: per-cursor scale is applied via the ratio in applyCapeForIdentifier.
+        // In global mode: CGSSetCursorScale handles uniform scaling, but we still need to
+        // register the defaults explicitly — otherwise the WindowServer caches stale images
+        // and CGSSetCursorScale alone causes pixelation for unregistered cursor types.
+        {
+            MMLog("--- Re-registering system defaults (%s mode) ---", isCustomMode ? "custom" : "global");
             NSMutableSet *registeredKeys = [NSMutableSet set];
             for (NSString *key in cursors) {
                 NSArray *reps = cursors[key][MCCursorDictionaryRepresentationsKey];
@@ -828,9 +831,8 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
             }
 
             // Temporarily boost cursor scale for high-res extraction
-            float savedScale = cursorScale();
             float extractScale = 64.0f;
-            MMLog("  Boosting cursor scale to %.1f for high-res extraction (was %.1f)", extractScale, savedScale);
+            MMLog("  Boosting cursor scale to %.1f for high-res extraction", extractScale);
             CGSSetCursorScale(CGSMainConnectionID(), extractScale);
             CGSHideCursor(CGSMainConnectionID());
 
@@ -845,7 +847,7 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
                 if (!systemData) {
                     return; // No system cursor data available
                 }
-                BOOL ok = applyCapeForIdentifier(systemData, name, NO, YES, YES, YES);
+                BOOL ok = applyCapeForIdentifier(systemData, name, NO, isCustomMode, YES, YES);
                 if (ok) {
                     systemDefaultCount++;
                 } else {
@@ -853,7 +855,7 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
                 }
             });
 
-            // Restore the original scale
+            // Restore the original scale (savedScale from before resetAllCursors)
             MMLog("  Restoring cursor scale to %.1f after extraction", savedScale);
             CGSSetCursorScale(CGSMainConnectionID(), savedScale);
             CGSShowCursor(CGSMainConnectionID());
@@ -964,4 +966,78 @@ BOOL applyCapeAtPath(NSString *path) {
     }
     MMLog(BOLD RED "Could not parse valid cape file" RESET);
     return NO;
+}
+
+void refreshSystemDefaultCursors(void) {
+    @autoreleasepool {
+        MMLog("========================================");
+        MMLog("=== REFRESHING SYSTEM DEFAULT CURSORS ===");
+        MMLog("========================================");
+
+        float savedScale = cursorScale();
+        BOOL isCustomMode = customScaleMode();
+
+        if (savedScale <= 0.0f) savedScale = 1.0f;
+        MMLog("Current scale: %.2f, mode: %s", savedScale, isCustomMode ? "custom" : "global");
+
+        // Boost to 64x for high-res extraction.
+        // At scale=1.0, system cursors come back as tiny 64×64 bitmaps.
+        // At scale=64.0, the system renders them at 64× native → ~2048px images.
+        float extractScale = 64.0f;
+        MMLog("Boosting cursor scale to %.1f for high-res extraction", extractScale);
+        CGSSetCursorScale(CGSMainConnectionID(), extractScale);
+        CGSHideCursor(CGSMainConnectionID());
+
+        __block NSUInteger successCount = 0;
+        __block NSUInteger failedCount = 0;
+
+        MCEnumerateAllCursorIdentifiers(^(NSString *name) {
+            NSDictionary *systemData = systemCapeWithIdentifier(name);
+            if (!systemData) {
+                return;
+            }
+            BOOL ok = applyCapeForIdentifier(systemData, name, NO, isCustomMode, YES, YES);
+            if (ok) {
+                successCount++;
+            } else {
+                failedCount++;
+                MMLog(YELLOW "  Failed to re-register system default %s" RESET, name.UTF8String);
+            }
+        });
+
+        // Restore the original scale
+        MMLog("Restoring cursor scale to %.2f after extraction", savedScale);
+        CGSSetCursorScale(CGSMainConnectionID(), savedScale);
+        CGSShowCursor(CGSMainConnectionID());
+
+        MMLog("Re-registered %lu system default cursors (failed: %lu)",
+              (unsigned long)successCount, (unsigned long)failedCount);
+
+        // Nudge — force cursor system to re-evaluate all registered cursors
+        if (savedScale > 0.0f) {
+            MMLog("Starting cursor scale nudge: target=%.2f", savedScale);
+
+            CGSSetCursorScale(CGSMainConnectionID(), savedScale + 0.3f);
+            usleep(30000); // 30ms
+
+            float afterRestore = savedScale;
+            for (int retry = 0; retry < 3; retry++) {
+                CGSSetCursorScale(CGSMainConnectionID(), savedScale);
+                afterRestore = cursorScale();
+                if (fabsf(afterRestore - savedScale) < 0.01f) {
+                    break;
+                }
+                usleep(20000); // 20ms between retries
+            }
+
+            if (fabsf(afterRestore - savedScale) >= 0.01f) {
+                MMLog(RED "Cursor scale nudge FAILED: final=%.2f, target=%.2f" RESET,
+                      afterRestore, savedScale);
+            } else {
+                MMLog(GREEN "Cursor scale nudge completed: finalScale=%.2f" RESET, afterRestore);
+            }
+        }
+
+        MMLog("=== SYSTEM DEFAULT CURSOR REFRESH COMPLETE ===");
+    }
 }
