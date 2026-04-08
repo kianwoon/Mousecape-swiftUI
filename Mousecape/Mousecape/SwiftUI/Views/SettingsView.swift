@@ -125,8 +125,8 @@ struct GeneralSettingsView: View {
                         _ = setCursorScale(Float(cursorScale))
                         saveCursorScale(cursorScale)
                     }
-                    // Refresh system defaults at the new scale/mode
-                    refreshSystemDefaultCursors()
+                    // Do NOT call refreshSystemDefaultCursors() — per v1.2.0,
+                    // settings changes should not auto-apply cursors.
                 }
 
                 if scaleMode == .global {
@@ -139,8 +139,7 @@ struct GeneralSettingsView: View {
                             Text("16.0x")
                         } onEditingChanged: { editing in
                             if !editing {
-                                // Expensive: re-register system defaults only when drag ends
-                                refreshSystemDefaultCursors()
+                                // Scale saved via onChange below — no refreshSystemDefaultCursors()
                             }
                         }
                         .onChange(of: cursorScale) { _, newValue in
@@ -756,9 +755,8 @@ struct CustomScaleView: View {
         CFPreferencesAppSynchronize(Self.preferenceDomain as CFString)
         // Set system scale immediately for visual feedback (lightweight CGS call)
         _ = setCursorScale(Float(baseScale))
-        // Refresh system defaults with per-cursor scaling to prevent pixelation
-        refreshSystemDefaultCursors()
-        // Mark that a full re-apply is needed on screen exit (expensive — re-registers all cursors)
-        hasUnsavedScaleChanges = true
+        // Do NOT call refreshSystemDefaultCursors() here — it re-registers all
+        // cursors including cape ones, causing inner shadow to double.
+        // Scale changes take effect on next explicit Apply (per v1.2.0 design).
     }
 }

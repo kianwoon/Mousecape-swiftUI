@@ -20,6 +20,7 @@ extern BOOL applyCape(NSDictionary *dictionary);
 extern NSDictionary *applyCapeWithResult(NSDictionary *dictionary);
 extern BOOL applyCapeAtPath(NSString *path);
 extern void refreshSystemDefaultCursors(void);
+extern BOOL applyCapeWithoutReset(NSDictionary *dictionary);
 
 NS_ASSUME_NONNULL_END
 
