@@ -1,4 +1,14 @@
-### v1.2.3 - Bug Fix
+### v1.2.4 - Bug Fix
+
+**This update fixes system cursor pixelation when applying a cape from the main app.**
+
+**Bug Fixes:**
+
+- Fixed system default cursors (resize, move, link, etc.) appearing pixelated at high scale when applied from the main app
+- Fixed inner shadow effect doubling on cape cursors each time settings were changed
+- Fixed cursor scale adjustments in Settings triggering an unwanted re-apply of the cape
+
+---
 
 **This update fixes cursor pixelation when changing the cursor scale without a cape applied.**
 
