@@ -255,35 +255,54 @@ final class AppState: @unchecked Sendable {
         let preferenceDomain = "com.sdmj76.Mousecape"
         let customMaxScaleKey = "MCCustomMaxScale"
 
+        // Read current system scale — if it already matches, skip the call.
+        // CGSSetCursorScale forces the WindowServer to re-render all cursors,
+        // which can cause pixelation if the registered images are stale/cached.
+        let currentScale = cursorScale()
+
         if customScaleMode() {
             // Custom mode: applyCape() handles per-cursor scaling internally
-            // Just ensure CGSSetCursorScale matches maxScale
-            debugLog("Custom scale mode on startup")
-            if let maxScale = CFPreferencesCopyAppValue(customMaxScaleKey as CFString, preferenceDomain as CFString) as? Double {
-                debugLog("Setting max cursor scale: \(maxScale)")
-                _ = setCursorScale(Float(maxScale))
+            // Just ensure CGSSetCursorScale matches baseScale (1.0)
+            debugLog("Custom scale mode on startup (currentScale=\(currentScale))")
+            if let baseScale = CFPreferencesCopyAppValue(customMaxScaleKey as CFString, preferenceDomain as CFString) as? Double {
+                let targetScale = Float(baseScale)
+                if abs(currentScale - targetScale) < 0.01 {
+                    debugLog("Scale already correct (\(currentScale)), skipping setCursorScale")
+                } else {
+                    debugLog("Setting cursor scale from \(currentScale) to \(targetScale)")
+                    _ = setCursorScale(targetScale)
+                }
             }
         } else {
             // Global mode: use separate global scale preference
-            debugLog("Global scale mode on startup")
+            debugLog("Global scale mode on startup (currentScale=\(currentScale))")
             let globalScaleKey = "MCGlobalCursorScale"
             if let value = CFPreferencesCopyAppValue(globalScaleKey as CFString, preferenceDomain as CFString) as? Double {
-                debugLog("Loading saved global cursor scale: \(value)")
-                let success = setCursorScale(Float(value))
-                if success {
-                    debugLog("Successfully applied cursor scale on startup")
+                let targetScale = Float(value)
+                if abs(currentScale - targetScale) < 0.01 {
+                    debugLog("Scale already correct (\(currentScale)), skipping setCursorScale")
                 } else {
-                    debugLog("Failed to apply cursor scale on startup")
+                    debugLog("Setting global scale from \(currentScale) to \(targetScale)")
+                    let success = setCursorScale(targetScale)
+                    if success {
+                        debugLog("Successfully applied cursor scale on startup")
+                    } else {
+                        debugLog("Failed to apply cursor scale on startup")
+                    }
                 }
             } else {
                 debugLog("No saved cursor scale found, using default (1.0)")
-                _ = setCursorScale(1.0)
+                if abs(currentScale - 1.0) > 0.01 {
+                    _ = setCursorScale(1.0)
+                }
             }
         }
 
-        // Refresh system defaults at the restored scale to prevent pixelation
-        // when no cape is applied (WindowServer caches cursor images)
-        refreshSystemDefaultCursors()
+        // Do NOT call refreshSystemDefaultCursors() on startup.
+        // It boosts scale to 64x, re-reads ALL cursor images (including custom cape
+        // images that were already correctly applied by the Helper), and re-registers
+        // them — destroying the high-quality registrations and causing pixelation.
+        // Only refresh when no cape is applied (user clicked Reset).
     }
 
     // MARK: - Cape Actions
@@ -455,65 +474,53 @@ final class AppState: @unchecked Sendable {
         debugLog("Cape: \(cape.name) (\(cape.identifier))")
         debugLog("Cursors count: \(cape.cursors.count)")
 
-        // Use the new method that returns detailed results
-        guard let result = libraryController?.applyCape(withResult: cape.underlyingLibrary) as? [String: Any] else {
-            debugLog("Apply failed - nil result")
+        guard let capeURL = cape.fileURL else {
+            debugLog("Apply failed - cape has no file URL")
             operationResultMessage = String(localized: "Failed to apply cape.")
             operationResultIsSuccess = false
             showOperationResult = true
             return
         }
 
-        let success = result["success"] as? Bool ?? false
-        let successCount = result["successCount"] as? UInt ?? 0
-        let failedCount = result["failedCount"] as? UInt ?? 0
-        let skippedCount = result["skippedCount"] as? UInt ?? 0
-        let failedIdentifiers = result["failedIdentifiers"] as? [String] ?? []
-        let skippedIdentifiers = result["skippedIdentifiers"] as? [String] ?? []
-
-        if success {
-            appliedCape = cape
-
-            if failedCount == 0 && skippedCount == 0 {
-                // Clean success — toast notification
-                showToastNotification("\"\(cape.name)\" \(String(localized: "applied successfully."))")
-            } else {
-                // Partial success — show modal with details
-                var message = "\"\(cape.name)\" "
-                message += String(format: String(localized: "applied with warnings (%u succeeded, %u failed, %u skipped)"),
-                                successCount, failedCount, skippedCount)
-                if failedCount > 0 {
-                    message += "\n\n" + String(localized: "Failed cursors:") + "\n" + failedIdentifiers.joined(separator: "\n")
-                    debugLog("Apply completed with failures: \(failedIdentifiers)")
-                }
-                operationResultMessage = message
-                operationResultIsSuccess = false
-                showOperationResult = true
-            }
-        } else {
-            operationResultMessage = String(localized: "Failed to apply cape - no cursors were successfully applied.")
-            operationResultIsSuccess = false
-            showOperationResult = true
-            debugLog("Apply failed - no cursors succeeded")
+        // Save cape to disk first
+        do {
+            try cape.save()
+            debugLog("Cape saved to disk: \(capeURL.path)")
+        } catch {
+            debugLog("Warning: could not save cape before applying: \(error)")
         }
 
-        debugLog("Apply completed, saving preferences...")
+        // Read the cape dictionary from file (avoids double HEIF encode/decode
+        // that dictionaryRepresentation causes)
+        guard let capeDictNS = NSDictionary(contentsOfFile: capeURL.path) else {
+            debugLog("Apply failed - could not read cape file")
+            operationResultMessage = String(localized: "Failed to apply cape.")
+            operationResultIsSuccess = false
+            showOperationResult = true
+            return
+        }
 
-        // Save identifier for "Apply Last Cape on Launch" feature
+        // Use the ObjC applyCapeWithoutReset() — same logic as applyCape() but
+        // skips resetAllCursors()/CoreCursorUnregisterAll() which corrupts the
+        // WindowServer cache on running systems.  Handles scale setup, cape cursor
+        // registration, system default re-registration (with registeredKeys to avoid
+        // shadow doubling), and MCForceCursorReevaluation.
+        let capeDict = capeDictNS as! [AnyHashable: Any]
+        let success = applyCapeWithoutReset(capeDict)
+
+        if !success {
+            debugLog("Apply failed - applyCapeWithoutReset returned false")
+            operationResultMessage = String(localized: "Failed to apply cape.")
+            operationResultIsSuccess = false
+            showOperationResult = true
+            return
+        }
+
+        appliedCape = cape
+        showToastNotification("\"\(cape.name)\" \(String(localized: "applied successfully."))")
+
+        debugLog("Apply completed, saving preferences...")
         UserDefaults.standard.set(cape.identifier, forKey: "lastAppliedCapeIdentifier")
-        // Also write MCAppliedCursor for session monitor (ObjC listen.m)
-        CFPreferencesSetValue(
-            "MCAppliedCursor" as CFString,
-            cape.identifier as CFString,
-            "com.sdmj76.Mousecape" as CFString,
-            kCFPreferencesCurrentUser,
-            kCFPreferencesCurrentHost
-        )
-        CFPreferencesSynchronize(
-            "com.sdmj76.Mousecape" as CFString,
-            kCFPreferencesCurrentUser,
-            kCFPreferencesCurrentHost
-        )
     }
 
     /// Reset to default system cursors
@@ -527,19 +534,7 @@ final class AppState: @unchecked Sendable {
 
         // Clear last applied cape identifier
         UserDefaults.standard.removeObject(forKey: "lastAppliedCapeIdentifier")
-        // Also clear MCAppliedCursor for session monitor
-        CFPreferencesSetValue(
-            "MCAppliedCursor" as CFString,
-            nil,
-            "com.sdmj76.Mousecape" as CFString,
-            kCFPreferencesCurrentUser,
-            kCFPreferencesCurrentHost
-        )
-        CFPreferencesSynchronize(
-            "com.sdmj76.Mousecape" as CFString,
-            kCFPreferencesCurrentUser,
-            kCFPreferencesCurrentHost
-        )
+        // Note: MCAppliedCursor is cleared by restore.m — do not write here
     }
 
     /// Edit a cape
