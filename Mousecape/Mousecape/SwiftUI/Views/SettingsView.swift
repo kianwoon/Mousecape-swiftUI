@@ -67,6 +67,7 @@ struct GeneralSettingsView: View {
     @State private var applyTask: Task<Void, Never>?
     @State private var loginToggleError: String?
     @State private var showLoginError = false
+    @State private var isPointerCustomized: Bool = isSystemPointerColorCustomized()
     @Environment(AppState.self) private var appState
 
     /// The key used by ObjC code for cursor scale
@@ -79,6 +80,32 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
+            if isPointerCustomized {
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.yellow)
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(String(localized: "Pointer Color Conflict"))
+                                .font(.headline)
+                            Text(String(localized: "Mousecape cannot apply custom cursors because your system pointer color has been changed. Go to System Settings > Accessibility > Display > Pointer and tap \"Reset Color\"."))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            openAccessibilityPointerSettings()
+                        } label: {
+                            Text(String(localized: "Fix"))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
             Section("Startup") {
                 Toggle("Apply at Login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, newValue in
@@ -182,6 +209,10 @@ struct GeneralSettingsView: View {
         .onAppear {
             loadScaleMode()  // This now also calls loadCursorScale()
             loadHandedness()
+            isPointerCustomized = isSystemPointerColorCustomized()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willBecomeActiveNotification)) { _ in
+            isPointerCustomized = isSystemPointerColorCustomized()
         }
         .alert("Login Item Error", isPresented: $showLoginError) {
             Button("OK") { }
@@ -458,7 +489,7 @@ struct AdvancedSettingsView: View {
                        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
                         Text("Mousecape v\(version) (\(build))")
                     } else {
-                        Text("Mousecape v1.2.4")
+                        Text("Mousecape v1.2.5")
                     }
                 }
                 LabeledContent("System Requirements") {

@@ -17,8 +17,14 @@
 
 #define PERIODIC_NUDGE_INTERVAL_SEC 60.0
 
+// Forward declaration for cleanup
+static void unregisterDisplayCallback(void);
+
+// Static references for session monitor cleanup
+static CFRunLoopSourceRef g_sessionMonitorRLS = NULL;
+
 // Periodic scale nudge callback — keeps cursor registrations fresh while the Helper runs.
-// Mirrors the nudge pattern in apply.m: bump + 30ms delay + restore with retry.
+// Dispatched to a background queue to avoid blocking the main thread (usleep ~90ms total).
 static void periodicNudgeCallback(CFRunLoopTimerRef timer, void *info) {
     float scale = cursorScale();
     if (scale <= 0.0f) {
@@ -28,30 +34,34 @@ static void periodicNudgeCallback(CFRunLoopTimerRef timer, void *info) {
 
     MMLog("Periodic nudge: scale=%.2f", scale);
 
-    CGSConnectionID cid = CGSMainConnectionID();
+    // Run the nudge (with usleep delays) on a background thread to keep the
+    // main RunLoop responsive. CGS calls are process-level IPC and safe off-main.
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        CGSConnectionID cid = CGSMainConnectionID();
 
-    // Bump scale to force cursor system to re-evaluate registrations
-    CGSSetCursorScale(cid, scale + 0.3f);
+        // Bump scale to force cursor system to re-evaluate registrations
+        CGSSetCursorScale(cid, scale + 0.3f);
 
-    // Small delay for cursor system to process the scale change
-    usleep(30000); // 30ms
+        // Small delay for cursor system to process the scale change
+        usleep(30000); // 30ms
 
-    // Restore with retry — the cursor system may not immediately apply the scale
-    float afterRestore = scale;
-    for (int retry = 0; retry < 3; retry++) {
-        CGSSetCursorScale(cid, scale);
-        afterRestore = cursorScale();
-        if (fabsf(afterRestore - scale) < 0.01f) {
-            break;
+        // Restore with retry — the cursor system may not immediately apply the scale
+        float afterRestore = scale;
+        for (int retry = 0; retry < 3; retry++) {
+            CGSSetCursorScale(cid, scale);
+            afterRestore = cursorScale();
+            if (fabsf(afterRestore - scale) < 0.01f) {
+                break;
+            }
+            usleep(20000); // 20ms between retries
         }
-        usleep(20000); // 20ms between retries
-    }
 
-    if (fabsf(afterRestore - scale) >= 0.01f) {
-        MMLog(RED "Periodic nudge FAILED: target=%.2f, final=%.2f" RESET, scale, afterRestore);
-    } else {
-        MMLog("Periodic nudge OK: %.2f", scale);
-    }
+        if (fabsf(afterRestore - scale) >= 0.01f) {
+            MMLog(RED "Periodic nudge FAILED: target=%.2f, final=%.2f" RESET, scale, afterRestore);
+        } else {
+            MMLog("Periodic nudge OK: %.2f", scale);
+        }
+    });
 }
 
 NSString *appliedCapePathForUser(NSString *user) {
@@ -144,17 +154,21 @@ static void UserSpaceChanged(SCDynamicStoreRef	store, CFArrayRef changedKeys, vo
 }
 
 void reconfigurationCallback(CGDirectDisplayID display,
-    	CGDisplayChangeSummaryFlags flags,
-    	void *userInfo) {
+	CGDisplayChangeSummaryFlags flags,
+	void *userInfo) {
+    // Skip the "begin" phase — macOS fires this callback twice per event:
+    // once before the change (begin flag set) and once after (no begin flag).
+    // Only acting on the "after" phase prevents double re-application.
+    if (flags & kCGDisplayBeginConfigurationFlag) {
+        MMLog("Display %u reconfiguration BEGIN phase — skipping", display);
+        return;
+    }
+
     MMLog("========================================");
     MMLog("=== DISPLAY RECONFIGURATION EVENT ===");
     MMLog("========================================");
     MMLog("Display ID: %u", display);
     MMLog("Flags: 0x%x", flags);
-    MMLog("  kCGDisplayBeginConfigurationFlag: %s", (flags & kCGDisplayBeginConfigurationFlag) ? "YES" : "NO");
-    MMLog("  kCGDisplaySetMainFlag: %s", (flags & kCGDisplaySetMainFlag) ? "YES" : "NO");
-    MMLog("  kCGDisplayAddFlag: %s", (flags & kCGDisplayAddFlag) ? "YES" : "NO");
-    MMLog("  kCGDisplayRemoveFlag: %s", (flags & kCGDisplayRemoveFlag) ? "YES" : "NO");
 
     NSString *capePath = appliedCapePathForUser(NSUserName());
     MMLog("Cape path: %s", capePath ? capePath.UTF8String : "(none)");
@@ -209,87 +223,111 @@ void listener(void) {
     }
 
     SCDynamicStoreRef store = SCDynamicStoreCreate(NULL, CFSTR("com.apple.dts.ConsoleUser"), UserSpaceChanged, NULL);
-    assert(store != NULL);
+    if (!store) {
+        MMLog(BOLD RED "Failed to create SCDynamicStore — session monitor unavailable" RESET);
+        goto enter_runloop;
+    }
 
     CFStringRef key = SCDynamicStoreKeyCreateConsoleUser(NULL);
-    assert(key != NULL);
+    if (!key) {
+        MMLog(BOLD RED "Failed to create console user key — session monitor unavailable" RESET);
+        CFRelease(store);
+        goto enter_runloop;
+    }
 
     CFArrayRef keys = CFArrayCreate(NULL, (const void **)&key, 1, &kCFTypeArrayCallBacks);
-    assert(keys != NULL);
+    if (!keys) {
+        MMLog(BOLD RED "Failed to create key array — session monitor unavailable" RESET);
+        CFRelease(key);
+        CFRelease(store);
+        goto enter_runloop;
+    }
 
-    Boolean success = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
-    assert(success);
+    {
+        Boolean success = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
+        if (!success) {
+            MMLog(BOLD RED "Failed to set notification keys — session monitor unavailable" RESET);
+            CFRelease(keys);
+            CFRelease(key);
+            CFRelease(store);
+            goto enter_runloop;
+        }
+        CFRelease(keys);
+        CFRelease(key);
+    }
 
     NSApplicationLoad();
     CGDisplayRegisterReconfigurationCallback(reconfigurationCallback, NULL);
     MMLog(BOLD CYAN "Listening for Display changes" RESET);
 
-    CFRunLoopSourceRef rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-    assert(rls != NULL);
-    MMLog(BOLD CYAN "Listening for User changes" RESET);
+    {
+        CFRunLoopSourceRef rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+        if (!rls) {
+            MMLog(BOLD RED "Failed to create run loop source — session monitor unavailable" RESET);
+            CFRelease(store);
+            goto enter_runloop;
+        }
 
-    // Check CGS Connection
-    MMLog("--- Checking CGS Connection ---");
-    CGSConnectionID cid = CGSMainConnectionID();
-    MMLog("CGSMainConnectionID: %d", cid);
+        // Check CGS Connection
+        MMLog("--- Checking CGS Connection ---");
+        CGSConnectionID cid = CGSMainConnectionID();
+        MMLog("CGSMainConnectionID: %d", cid);
 
-    // Apply the cape for the user on load (if configured)
-    MMLog("--- Initial Cape Check ---");
-    NSString *initialCapePath = appliedCapePathForUser(NSUserName());
-    MMLog("Cape path: %s", initialCapePath ? initialCapePath.UTF8String : "(none)");
-    if (initialCapePath) {
-        MMLog("--- Applying initial cape ---");
-        BOOL applySuccess = applyCapeAtPath(initialCapePath);
-        MMLog("Initial apply result: %s", applySuccess ? "SUCCESS" : "FAILED");
-    } else {
-        MMLog("No cape configured - refreshing system defaults at current scale");
-        refreshSystemDefaultCursors();
-    }
-    // Restore scale according to the active mode
-    if (customScaleMode()) {
-        float maxScale = [MCDefault(@"MCCustomMaxScale") floatValue];
-        if (maxScale <= 0.0f) maxScale = 1.0f;
-        setCursorScale(maxScale);
-    } else {
-        float globalScale = [MCDefault(@"MCGlobalCursorScale") floatValue];
-        if (globalScale < 0.5f || globalScale > 16.0f) globalScale = 1.0f;
-        setCursorScale(globalScale);
-    }
+        // Apply the cape for the user on load (if configured)
+        MMLog("--- Initial Cape Check ---");
+        NSString *initialCapePath = appliedCapePathForUser(NSUserName());
+        MMLog("Cape path: %s", initialCapePath ? initialCapePath.UTF8String : "(none)");
+        if (initialCapePath) {
+            MMLog("--- Applying initial cape ---");
+            BOOL applySuccess = applyCapeAtPath(initialCapePath);
+            MMLog("Initial apply result: %s", applySuccess ? "SUCCESS" : "FAILED");
+        } else {
+            MMLog("No cape configured - refreshing system defaults at current scale");
+            refreshSystemDefaultCursors();
+        }
+        // Restore scale according to the active mode
+        if (customScaleMode()) {
+            float maxScale = [MCDefault(@"MCCustomMaxScale") floatValue];
+            if (maxScale <= 0.0f) maxScale = 1.0f;
+            setCursorScale(maxScale);
+        } else {
+            float globalScale = [MCDefault(@"MCGlobalCursorScale") floatValue];
+            if (globalScale < 0.5f || globalScale > 16.0f) globalScale = 1.0f;
+            setCursorScale(globalScale);
+        }
 
-    // Periodic scale nudge timer — keeps cursor registrations fresh while Helper is running
-    static CFRunLoopTimerRef periodicNudgeTimer = NULL;
-    CFRunLoopTimerContext timerCtx = {0, NULL, NULL, NULL, NULL};
-    periodicNudgeTimer = CFRunLoopTimerCreate(
-        NULL,                                                // allocator
-        CFAbsoluteTimeGetCurrent() + PERIODIC_NUDGE_INTERVAL_SEC,  // first fire (60s from now)
-        PERIODIC_NUDGE_INTERVAL_SEC,                         // interval (every 60s)
-        0,                                                   // flags
-        0,                                                   // order
-        periodicNudgeCallback,                                // callback
-        &timerCtx
-    );
-    if (periodicNudgeTimer) {
-        CFRunLoopAddTimer(CFRunLoopGetCurrent(), periodicNudgeTimer, kCFRunLoopDefaultMode);
-        MMLog(BOLD CYAN "Periodic nudge timer started (interval: %.0f sec)" RESET, PERIODIC_NUDGE_INTERVAL_SEC);
-    } else {
-        MMLog(BOLD RED "Failed to create periodic nudge timer" RESET);
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+        MMLog("Entering run loop...");
+        CFRunLoopRun();
+
+        // Cleanup
+        MMLog("Exiting run loop, cleaning up...");
+        CFRunLoopSourceInvalidate(rls);
+        CFRelease(rls);
     }
 
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-    MMLog("Entering run loop...");
-    CFRunLoopRun();
-
-    // Cleanup
-    MMLog("Exiting run loop, cleaning up...");
-    CFRunLoopSourceInvalidate(rls);
-    CFRelease(rls);
-    CFRelease(keys);
-    CFRelease(key);
+    // Cleanup display callback
+    unregisterDisplayCallback();
     CFRelease(store);
 
 #ifdef DEBUG
     MCLoggerClose();
 #endif
+    return;
+
+enter_runloop:
+    // Fallback: still enter run loop to keep the process alive, but without session monitoring
+    MMLog(BOLD YELLOW "Entering run loop without session monitoring" RESET);
+    CFRunLoopRun();
+#ifdef DEBUG
+    MCLoggerClose();
+#endif
+}
+
+// Cleanup: remove display reconfiguration callback to prevent firing during teardown
+static void unregisterDisplayCallback(void) {
+    CGDisplayRemoveReconfigurationCallback(reconfigurationCallback, NULL);
+    MMLog("Display reconfiguration callback unregistered");
 }
 
 void startSessionMonitor(void) {
@@ -298,22 +336,49 @@ void startSessionMonitor(void) {
     MMLog("========================================");
 
     SCDynamicStoreRef store = SCDynamicStoreCreate(NULL, CFSTR("com.apple.dts.ConsoleUser"), UserSpaceChanged, NULL);
-    assert(store != NULL);
+    if (!store) {
+        MMLog(BOLD RED "Failed to create SCDynamicStore — session monitor unavailable" RESET);
+        return;
+    }
 
     CFStringRef key = SCDynamicStoreKeyCreateConsoleUser(NULL);
-    assert(key != NULL);
+    if (!key) {
+        MMLog(BOLD RED "Failed to create console user key — session monitor unavailable" RESET);
+        CFRelease(store);
+        return;
+    }
 
     CFArrayRef keys = CFArrayCreate(NULL, (const void **)&key, 1, &kCFTypeArrayCallBacks);
-    assert(keys != NULL);
+    if (!keys) {
+        MMLog(BOLD RED "Failed to create key array — session monitor unavailable" RESET);
+        CFRelease(key);
+        CFRelease(store);
+        return;
+    }
 
-    Boolean success = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
-    assert(success);
+    {
+        Boolean success = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
+        if (!success) {
+            MMLog(BOLD RED "Failed to set notification keys — session monitor unavailable" RESET);
+            CFRelease(keys);
+            CFRelease(key);
+            CFRelease(store);
+            return;
+        }
+        CFRelease(keys);
+        CFRelease(key);
+    }
 
     CGDisplayRegisterReconfigurationCallback(reconfigurationCallback, NULL);
     MMLog(BOLD CYAN "Listening for Display changes" RESET);
 
     CFRunLoopSourceRef rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-    assert(rls != NULL);
+    if (!rls) {
+        MMLog(BOLD RED "Failed to create run loop source — session monitor unavailable" RESET);
+        unregisterDisplayCallback();
+        CFRelease(store);
+        return;
+    }
     MMLog(BOLD CYAN "Listening for User changes" RESET);
 
     // Apply the cape for the user on load (if configured)
@@ -338,11 +403,24 @@ void startSessionMonitor(void) {
         setCursorScale(globalScale);
     }
 
+    g_sessionMonitorRLS = rls;
     CFRunLoopAddSource(CFRunLoopGetMain(), rls, kCFRunLoopDefaultMode);
     MMLog("Session monitor attached to main run loop (non-blocking)");
 
     // Intentionally not releasing store/rls — they must stay alive
     // for the lifetime of the app to keep the session monitor active.
-    CFRelease(keys);
-    CFRelease(key);
+}
+
+void stopSessionMonitor(void) {
+    MMLog("Stopping session monitor...");
+
+    // Remove display reconfiguration callback to prevent firing during teardown
+    unregisterDisplayCallback();
+
+    // Remove run loop source to stop receiving session change notifications
+    if (g_sessionMonitorRLS) {
+        CFRunLoopSourceInvalidate(g_sessionMonitorRLS);
+        g_sessionMonitorRLS = NULL;
+        MMLog("Session monitor run loop source removed");
+    }
 }

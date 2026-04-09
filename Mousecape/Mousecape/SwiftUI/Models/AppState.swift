@@ -10,6 +10,31 @@ import AppKit
 import Combine
 import UniformTypeIdentifiers
 
+/// Checks if the user has customized pointer colors in System Settings >
+/// Accessibility > Display > Pointer. When customized, macOS composites its own
+/// color tint over all cursors, which overrides CGSRegisterCursorWithImages().
+/// This makes Mousecape cursors invisible until pointer colors are reset.
+func isSystemPointerColorCustomized() -> Bool {
+    let domain = "com.apple.universalaccess" as CFString
+    guard let value = CFPreferencesCopyValue(
+        "cursorIsCustomized" as CFString,
+        domain,
+        kCFPreferencesCurrentUser,
+        kCFPreferencesCurrentHost
+    ) else {
+        return false
+    }
+    return (value as? Bool) ?? false
+}
+
+/// Opens the System Settings Accessibility Display pane where the user can
+/// reset pointer colors to defaults.
+func openAccessibilityPointerSettings() {
+    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.universalaccess?Display_Pointer") {
+        NSWorkspace.shared.open(url)
+    }
+}
+
 /// Main application state - ObservableObject for SwiftUI
 ///
 /// @unchecked Sendable is safe because:
@@ -113,6 +138,9 @@ final class AppState: @unchecked Sendable {
         toastIsSuccess = success
         showToast = true
     }
+
+    /// Pointer color warning state (shown when user has custom pointer colors)
+    var showPointerColorWarning: Bool = false
 
     /// Error state
     var lastError: Error?
@@ -473,6 +501,14 @@ final class AppState: @unchecked Sendable {
         debugLog("=== Applying Cape ===")
         debugLog("Cape: \(cape.name) (\(cape.identifier))")
         debugLog("Cursors count: \(cape.cursors.count)")
+
+        // Check if the user has custom pointer colors set — these override
+        // CGSRegisterCursorWithImages() and make Mousecape cursors invisible.
+        if isSystemPointerColorCustomized() {
+            debugLog("Apply blocked — system pointer colors are customized")
+            showPointerColorWarning = true
+            return
+        }
 
         guard let capeURL = cape.fileURL else {
             debugLog("Apply failed - cape has no file URL")

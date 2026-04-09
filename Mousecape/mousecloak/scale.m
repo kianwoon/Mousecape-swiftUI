@@ -12,11 +12,6 @@
 #import "CGSCursor.h"
 #import <math.h>
 
-// Process-local cache of scale mode — initialized lazily from CFPreferences
-// on first access to avoid stale defaults across multiple processes.
-static BOOL g_customScaleMode = NO;
-static BOOL g_scaleModeInitialized = NO;
-
 float cursorScale(void) {
     float value;
     CGSGetCursorScale(CGSMainConnectionID(), &value);
@@ -44,24 +39,20 @@ BOOL setCursorScale(float dbl) {
 }
 
 BOOL customScaleMode(void) {
-    if (!g_scaleModeInitialized) {
-        g_scaleModeInitialized = YES;
-        NSString *mode = (__bridge_transfer NSString *)CFPreferencesCopyValue(
-            CFSTR("MCScaleMode"),
-            CFSTR("com.sdmj76.Mousecape"),
-            kCFPreferencesCurrentUser,
-            kCFPreferencesCurrentHost
-        );
-        g_customScaleMode = [mode isEqualToString:@"custom"];
-        MMLog("Scale mode initialized from preferences: %s", g_customScaleMode ? "custom" : "global");
-    }
-    return g_customScaleMode;
+    // Always re-read from CFPreferences to avoid stale cache across processes.
+    // Called only during session/display events (not a hot path).
+    NSString *mode = (__bridge_transfer NSString *)CFPreferencesCopyValue(
+        CFSTR("MCScaleMode"),
+        CFSTR("com.sdmj76.Mousecape"),
+        kCFPreferencesCurrentUser,
+        kCFPreferencesCurrentHost
+    );
+    BOOL isCustom = [mode isEqualToString:@"custom"];
+    MMLog("Scale mode read from preferences: %s", isCustom ? "custom" : "global");
+    return isCustom;
 }
 
 void setCustomScaleMode(BOOL isCustom) {
-    g_customScaleMode = isCustom;
-    g_scaleModeInitialized = YES;
-
     // Persist to CFPreferences so other processes (Helper) pick up the change
     NSString *modeValue = isCustom ? @"custom" : @"global";
     CFPreferencesSetValue(

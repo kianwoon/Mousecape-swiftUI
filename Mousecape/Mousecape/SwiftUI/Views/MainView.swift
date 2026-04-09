@@ -58,6 +58,20 @@ struct MainView: View {
         } message: {
             Text(appState.operationResultMessage)
         }
+        .alert(
+            String(localized: "Cannot Apply Cursor"),
+            isPresented: Binding(
+                get: { appState.showPointerColorWarning },
+                set: { appState.showPointerColorWarning = $0 }
+            )
+        ) {
+            Button(String(localized: "Open Settings")) {
+                openAccessibilityPointerSettings()
+            }
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(String(localized: "Mousecape cannot apply custom cursors because your system pointer color has been changed. Please go to System Settings > Accessibility > Display > Pointer and tap \"Reset Color\", then try again."))
+        }
     }
 }
 

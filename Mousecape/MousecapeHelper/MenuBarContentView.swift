@@ -13,7 +13,6 @@ import Combine
 @MainActor
 class CursorState: ObservableObject {
     @Published var currentCapeName: String = ""
-    private var observer: NSObjectProtocol?
     private var cfObserverContext: UnsafeMutableRawPointer?
 
     init() {
@@ -23,19 +22,7 @@ class CursorState: ObservableObject {
         // Initial refresh
         refresh()
 
-        // Listen for preference changes from main app
-        observer = DistributedNotificationCenter.default().addObserver(
-            forName: NSNotification.Name("com.sdmj76.Mousecape.cursorChanged"),
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            guard let self = self else { return }
-            Task { @MainActor [weak self] in
-                self?.refresh()
-            }
-        }
-
-        // Also listen for CFPreferences changes
+        // Listen for preference changes from main app (posted via MCSetDefaultFor in MCPrefs.m)
         CFNotificationCenterAddObserver(
             CFNotificationCenterGetDarwinNotifyCenter(),
             cfObserverContext,
@@ -53,9 +40,6 @@ class CursorState: ObservableObject {
     }
 
     deinit {
-        if let observer = observer {
-            DistributedNotificationCenter.default().removeObserver(observer)
-        }
         if let context = cfObserverContext {
             CFNotificationCenterRemoveObserver(
                 CFNotificationCenterGetDarwinNotifyCenter(),

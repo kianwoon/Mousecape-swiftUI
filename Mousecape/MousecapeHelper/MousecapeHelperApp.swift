@@ -40,6 +40,8 @@ class HelperAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         debugLog("MousecapeHelper terminating")
+        // Remove display reconfiguration callback to prevent firing during teardown
+        stopSessionMonitor()
         #if DEBUG
         MCLoggerClose()
         #endif

@@ -16,13 +16,11 @@ void MCLoggerWrite(const char *format, ...);
 
 // Session monitoring
 void startSessionMonitor(void);
+void stopSessionMonitor(void);
 
 // Cursor management
 void ResetCursorsToDefault(void);
 void refreshSystemDefaultCursors(void);
-
-// Preferences (returns C string, caller must not free)
-const char* MCPrefsGetLastAppliedCapePath(void);
 
 // Simple logging wrapper for Swift
 void HelperLog(const char* message);

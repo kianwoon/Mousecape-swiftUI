@@ -1099,10 +1099,33 @@ BOOL applyCapeAtPath(NSString *path) {
     }
 
     MMLog("Loading cape file...");
+
+    // Check if the user has customized pointer colors in Accessibility settings.
+    // When cursorIsCustomized=1, macOS composites its own color tint over all
+    // cursors, overriding CGSRegisterCursorWithImages().  Skip apply and log
+    // so the Helper doesn't silently fail on every session change / wake event.
+    CFPropertyListRef customizedRef = CFPreferencesCopyValue(
+        CFSTR("cursorIsCustomized"),
+        CFSTR("com.apple.universalaccess"),
+        kCFPreferencesCurrentUser,
+        kCFPreferencesCurrentHost
+    );
+    BOOL isCustomized = [(__bridge_transfer id)customizedRef boolValue];
+    if (isCustomized) {
+        MMLog(BOLD YELLOW "Skipping apply: system pointer colors are customized" RESET);
+        MMLog("User needs to reset pointer color in System Settings > Accessibility > Display");
+        return NO;
+    }
+
     NSDictionary *cape = [NSDictionary dictionaryWithContentsOfFile:standardPath];
     if (cape) {
         MMLog("Cape file loaded successfully, applying...");
-        return applyCape(cape);
+        // Use applyCapeWithoutReset() instead of applyCape() for both the
+        // Helper and CLI.  applyCapeWithoutReset() uses a gentler 8x extraction
+        // boost (vs 64x) and avoids resetAllCursors() which can cause visible
+        // cursor scale spikes on running systems, especially during early boot
+        // when the WindowServer hasn't fully settled.
+        return applyCapeWithoutReset(cape);
     }
     MMLog(BOLD RED "Could not parse valid cape file" RESET);
     return NO;
