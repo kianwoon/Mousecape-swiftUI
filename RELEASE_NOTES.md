@@ -1,3 +1,19 @@
+### v1.2.5 - Bug Fix
+
+**This update fixes a startup cursor scale spike and adds detection for system pointer color conflicts.**
+
+**Bug Fixes:**
+
+- Fixed Arrow cursor suddenly scaling up on startup — the Helper now uses the same gentle apply method as the main app
+- Fixed Mousecape silently failing when system pointer colors are customized in Accessibility settings — now shows a clear warning with a button to fix it
+
+**Improvements:**
+
+- Added a warning banner in Settings when pointer colors conflict, with a "Fix" button that opens System Settings directly
+- The warning automatically updates when you return from System Settings after resetting pointer colors
+
+---
+
 ### v1.2.4 - Bug Fix
 
 **This update fixes system cursor pixelation when applying a cape from the main app.**
