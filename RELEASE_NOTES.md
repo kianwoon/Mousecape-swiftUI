@@ -1,3 +1,9 @@
+### v1.2.6 - Bug Fix
+
+**This update is a maintenance release with minor improvements.**
+
+---
+
 ### v1.2.5 - Bug Fix
 
 **This update fixes a startup cursor scale spike and adds detection for system pointer color conflicts.**
