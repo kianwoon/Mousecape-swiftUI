@@ -104,6 +104,13 @@ NSString *appliedCapePathForUser(NSString *user) {
 }
 
 static void UserSpaceChanged(SCDynamicStoreRef	store, CFArrayRef changedKeys, void *info) {
+    // Skip if refreshSystemDefaultCursors is mid-extraction at 64x.
+    // Re-entering would read the boosted 64x scale and "restore" to it permanently.
+    if (g_refreshingSystemDefaults) {
+        MMLog(YELLOW "UserSpaceChanged: refresh in progress, skipping" RESET);
+        return;
+    }
+
     MMLog("========================================");
     MMLog("=== USER SPACE CHANGED EVENT ===");
     MMLog("========================================");
@@ -156,6 +163,12 @@ static void UserSpaceChanged(SCDynamicStoreRef	store, CFArrayRef changedKeys, vo
 void reconfigurationCallback(CGDirectDisplayID display,
 	CGDisplayChangeSummaryFlags flags,
 	void *userInfo) {
+    // Skip if refreshSystemDefaultCursors is mid-extraction at 64x.
+    if (g_refreshingSystemDefaults) {
+        MMLog(YELLOW "Reconfig: refresh in progress, skipping" RESET);
+        return;
+    }
+
     // Skip the "begin" phase — macOS fires this callback twice per event:
     // once before the change (begin flag set) and once after (no begin flag).
     // Only acting on the "after" phase prevents double re-application.

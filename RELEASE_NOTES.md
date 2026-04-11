@@ -1,3 +1,13 @@
+### v1.2.7 - Bug Fix
+
+**This update fixes a bug where the cursor scale could suddenly jump to 64x after a few minutes.**
+
+**Bug Fixes:**
+
+- Fixed cursor scale suddenly jumping to 64x after startup when no custom cursor theme is applied
+
+---
+
 ### v1.2.6 - Bug Fix
 
 **This update is a maintenance release with minor improvements.**

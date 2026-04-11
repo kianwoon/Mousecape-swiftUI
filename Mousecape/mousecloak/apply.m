@@ -19,6 +19,12 @@
 #import <math.h>
 #import <CoreImage/CoreImage.h>
 
+// Re-entry guard: prevents concurrent refreshSystemDefaultCursors() calls.
+// Without this, a display reconfiguration during a 64x extraction loop reads
+// the boosted scale as "saved" and restores to 64x permanently.
+// Declared extern so listen.m callbacks can also check it.
+volatile BOOL g_refreshingSystemDefaults = NO;
+
 static BOOL MCRegisterImagesForCursorName(NSUInteger frameCount, CGFloat frameDuration, CGPoint hotSpot, CGSize size, NSArray *images, NSString *name) {
     char *cursorName = (char *)name.UTF8String;
     int seed = 0;
@@ -1132,53 +1138,77 @@ BOOL applyCapeAtPath(NSString *path) {
 }
 
 void refreshSystemDefaultCursors(void) {
-    @autoreleasepool {
-        MMLog("========================================");
-        MMLog("=== REFRESHING SYSTEM DEFAULT CURSORS ===");
-        MMLog("========================================");
+    // Re-entry guard: if a refresh is already in progress (e.g. a display
+    // reconfiguration fired while we're mid-extraction at 64x), skip this
+    // call entirely.  The in-progress refresh will restore the correct scale.
+    if (g_refreshingSystemDefaults) {
+        MMLog(YELLOW "refreshSystemDefaultCursors: already in progress, skipping re-entry" RESET);
+        return;
+    }
+    g_refreshingSystemDefaults = YES;
 
-        float savedScale = cursorScale();
-        BOOL isCustomMode = customScaleMode();
+    @try {
+        @autoreleasepool {
+            MMLog("========================================");
+            MMLog("=== REFRESHING SYSTEM DEFAULT CURSORS ===");
+            MMLog("========================================");
 
-        if (savedScale <= 0.0f) savedScale = 1.0f;
-        MMLog("Current scale: %.2f, mode: %s", savedScale, isCustomMode ? "custom" : "global");
+            BOOL isCustomMode = customScaleMode();
 
-        // Boost to 64x for high-res extraction.
-        // At scale=1.0, system cursors come back as tiny 64×64 bitmaps.
-        // At scale=64.0, the system renders them at 64× native → ~2048px images.
-        float extractScale = 64.0f;
-        MMLog("Boosting cursor scale to %.1f for high-res extraction", extractScale);
-        CGSSetCursorScale(CGSMainConnectionID(), extractScale);
-        CGSHideCursor(CGSMainConnectionID());
-
-        __block NSUInteger successCount = 0;
-        __block NSUInteger failedCount = 0;
-
-        MCEnumerateAllCursorIdentifiers(^(NSString *name) {
-            NSDictionary *systemData = systemCapeWithIdentifier(name);
-            if (!systemData) {
-                return;
-            }
-            BOOL ok = applyCapeForIdentifier(systemData, name, NO, isCustomMode, YES, YES);
-            if (ok) {
-                successCount++;
+            // Derive the target scale from preferences, NOT from cursorScale().
+            // cursorScale() may return 64.0 if another refresh is mid-extraction,
+            // causing us to "restore" to the extraction boost instead of the real scale.
+            float targetScale;
+            if (isCustomMode) {
+                targetScale = [MCDefault(@"MCCustomMaxScale") floatValue];
+                if (targetScale <= 0.0f) targetScale = 1.0f;
             } else {
-                failedCount++;
-                MMLog(YELLOW "  Failed to re-register system default %s" RESET, name.UTF8String);
+                targetScale = [MCDefault(@"MCGlobalCursorScale") floatValue];
+                if (targetScale < 0.5f || targetScale > 16.0f) targetScale = 1.0f;
             }
-        });
 
-        // Restore the original scale
-        MMLog("Restoring cursor scale to %.2f after extraction", savedScale);
-        CGSSetCursorScale(CGSMainConnectionID(), savedScale);
-        CGSShowCursor(CGSMainConnectionID());
+            MMLog("Target scale (from prefs): %.2f, mode: %s", targetScale, isCustomMode ? "custom" : "global");
 
-        MMLog("Re-registered %lu system default cursors (failed: %lu)",
-              (unsigned long)successCount, (unsigned long)failedCount);
+            // Boost to 64x for high-res extraction.
+            // At scale=1.0, system cursors come back as tiny 64×64 bitmaps.
+            // At scale=64.0, the system renders them at 64× native → ~2048px images.
+            float extractScale = 64.0f;
+            MMLog("Boosting cursor scale to %.1f for high-res extraction", extractScale);
+            CGSSetCursorScale(CGSMainConnectionID(), extractScale);
+            CGSHideCursor(CGSMainConnectionID());
 
-        // Force the WindowServer to re-render all cursors at the restored scale
-        MCForceCursorReevaluation(savedScale);
+            __block NSUInteger successCount = 0;
+            __block NSUInteger failedCount = 0;
 
-        MMLog("=== SYSTEM DEFAULT CURSOR REFRESH COMPLETE ===");
+            MCEnumerateAllCursorIdentifiers(^(NSString *name) {
+                NSDictionary *systemData = systemCapeWithIdentifier(name);
+                if (!systemData) {
+                    return;
+                }
+                BOOL ok = applyCapeForIdentifier(systemData, name, NO, isCustomMode, YES, YES);
+                if (ok) {
+                    successCount++;
+                } else {
+                    failedCount++;
+                    MMLog(YELLOW "  Failed to re-register system default %s" RESET, name.UTF8String);
+                }
+            });
+
+            // Restore the target scale (from preferences, not from cursorScale())
+            MMLog("Restoring cursor scale to %.2f after extraction", targetScale);
+            CGSSetCursorScale(CGSMainConnectionID(), targetScale);
+            CGSShowCursor(CGSMainConnectionID());
+
+            MMLog("Re-registered %lu system default cursors (failed: %lu)",
+                  (unsigned long)successCount, (unsigned long)failedCount);
+
+            // Force the WindowServer to re-render all cursors at the restored scale
+            MCForceCursorReevaluation(targetScale);
+
+            MMLog("=== SYSTEM DEFAULT CURSOR REFRESH COMPLETE ===");
+        }
+    }
+    @finally {
+        g_refreshingSystemDefaults = NO;
     }
 }

@@ -21,6 +21,7 @@ extern NSDictionary *applyCapeWithResult(NSDictionary *dictionary);
 extern BOOL applyCapeAtPath(NSString *path);
 extern void refreshSystemDefaultCursors(void);
 extern BOOL applyCapeWithoutReset(NSDictionary *dictionary);
+extern volatile BOOL g_refreshingSystemDefaults;
 
 NS_ASSUME_NONNULL_END
 
