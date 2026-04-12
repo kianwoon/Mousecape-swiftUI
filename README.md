@@ -1,12 +1,5 @@
 <div align="center">
 
-<div style="width: 160px;">
-  <!-- Light mode -->
-  <img src="Screenshot/Icon-Light.png#gh-light-mode-only" width="160">
-  <!-- Dark mode -->
-  <img src="Screenshot/Icon-Dark.png#gh-dark-mode-only" width="160">
-</div>
-
 # Mousecape-swiftUI
 
 <p>
