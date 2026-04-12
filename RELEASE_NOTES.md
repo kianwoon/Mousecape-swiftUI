@@ -1,3 +1,15 @@
+### v1.2.8 - Improvement
+
+**This update improves the cursor editing experience and adds onboarding for new users.**
+
+**Improvements:**
+
+- Cursor preview in edit mode is now larger, making thin lines and small details easier to see
+- New users are automatically guided to create their first cursor theme
+- Per-cursor scale settings now auto-switch to custom mode when adjusted
+
+---
+
 ### v1.2.7 - Bug Fix
 
 **This update fixes a bug where the cursor scale could suddenly jump to 64x after a few minutes.**
