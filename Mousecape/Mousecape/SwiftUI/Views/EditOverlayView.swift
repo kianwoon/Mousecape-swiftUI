@@ -963,7 +963,7 @@ struct CursorPreviewDropZone: View {
                     cursor: cursor,
                     showHotspot: true,
                     refreshTrigger: refreshTrigger + localRefreshTrigger,
-                    scale: 3
+                    scale: 4
                 )
             } else {
                 // Empty state - prompt to add image

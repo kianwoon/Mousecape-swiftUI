@@ -89,6 +89,9 @@ final class AppState: @unchecked Sendable {
     /// Show delete cursor confirmation
     var showDeleteCursorConfirmation: Bool = false
 
+    /// First-time onboarding: auto-select Arrow group after entering edit mode
+    var autoSelectArrowOnEdit: Bool = false
+
     /// Delete confirmation state
     var showDeleteConfirmation: Bool = false
     var capeToDelete: CursorLibrary?
@@ -176,6 +179,11 @@ final class AppState: @unchecked Sendable {
         setupLibraryController()
         loadCapes()
         loadPreferences()
+
+        // First-time onboarding: if no capes exist, create one and enter edit mode
+        if capes.isEmpty {
+            autoSelectArrowOnEdit = true
+        }
     }
 
     private func setupLibraryController() {
@@ -211,6 +219,9 @@ final class AppState: @unchecked Sendable {
         // Restore selections by finding wrappers for the same ObjC objects
         if let selectedObjc = selectedObjc {
             selectedCape = capes.first { $0.underlyingLibrary === selectedObjc }
+        } else if let first = capes.first {
+            // Auto-select the first cape when no previous selection exists
+            selectedCape = first
         }
 
         // Check for applied cape (from controller or previously tracked)
@@ -276,6 +287,59 @@ final class AppState: @unchecked Sendable {
     private func loadPreferences() {
         // Load and apply cursor scale on startup
         applySavedCursorScale()
+    }
+
+    // MARK: - Per-Cursor Scale Helpers
+
+    private static let preferenceDomain = "com.sdmj76.Mousecape"
+    private static let perCursorScalesKey = "MCPerCursorScales"
+    private static let scaleModeKey = "MCScaleMode"
+
+    /// Get the per-cursor scale for a cursor identifier (default 1.0)
+    func getPerCursorScale(for identifier: String) -> Double {
+        if let dict = CFPreferencesCopyAppValue(Self.perCursorScalesKey as CFString, Self.preferenceDomain as CFString) as? [String: Double],
+           let scale = dict[identifier], scale > 0 {
+            return scale
+        }
+        return 1.0
+    }
+
+    /// Set per-cursor scale for a cursor identifier, auto-switching to custom mode if needed
+    func setPerCursorScale(_ scale: Double, for identifier: String) {
+        // Read existing dict
+        var perCursorScales: [String: Double] = [:]
+        if let dict = CFPreferencesCopyAppValue(Self.perCursorScalesKey as CFString, Self.preferenceDomain as CFString) as? [String: Double] {
+            perCursorScales = dict
+        }
+
+        // Update value (remove if 1.0 to keep dict clean)
+        if abs(scale - 1.0) < 0.01 {
+            perCursorScales.removeValue(forKey: identifier)
+        } else {
+            perCursorScales[identifier] = scale
+        }
+
+        // Save
+        CFPreferencesSetAppValue(
+            Self.perCursorScalesKey as CFString,
+            perCursorScales as CFPropertyList,
+            Self.preferenceDomain as CFString
+        )
+        CFPreferencesAppSynchronize(Self.preferenceDomain as CFString)
+
+        // Auto-switch to custom scale mode if currently in global mode
+        if let mode = CFPreferencesCopyAppValue(Self.scaleModeKey as CFString, Self.preferenceDomain as CFString) as? String,
+           mode == "global" {
+            CFPreferencesSetAppValue(
+                Self.scaleModeKey as CFString,
+                "custom" as CFString,
+                Self.preferenceDomain as CFString
+            )
+            CFPreferencesAppSynchronize(Self.preferenceDomain as CFString)
+            setCustomScaleMode(true)
+            // Set base scale to 1.0 for custom mode
+            _ = setCursorScale(1.0)
+        }
     }
 
     /// Load cursor scale from preferences and apply it
@@ -355,6 +419,23 @@ final class AppState: @unchecked Sendable {
         addCape(newCape)
         selectedCape = newCape
         capeInfoRefreshTrigger += 1  // Refresh file name display
+        editCape(newCape)
+    }
+
+    /// Create an initial cape for first-time users and enter edit mode
+    func performFirstTimeOnboarding() {
+        let author = NSFullUserName()
+        let newCape = CursorLibrary(name: "My Cursor", author: author)
+
+        // Save to disk
+        if let libraryURL = libraryController?.libraryURL {
+            let fileURL = libraryURL.appendingPathComponent("\(newCape.identifier).cape")
+            newCape.fileURL = fileURL
+            newCape.underlyingLibrary.write(toFile: fileURL.path, atomically: true)
+        }
+
+        addCape(newCape)
+        selectedCape = newCape
         editCape(newCape)
     }
 

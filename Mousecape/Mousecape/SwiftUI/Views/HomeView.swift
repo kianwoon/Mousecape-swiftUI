@@ -278,6 +278,15 @@ struct HomeView: View {
             guard !appState.isEditing else { return false }
             return handleCapeDrop(providers)
         }
+        // First-time onboarding: create a cape and enter edit mode
+        .onAppear { handleFirstTimeOnboarding() }
+    }
+
+    // MARK: - First-Time Onboarding
+
+    private func handleFirstTimeOnboarding() {
+        guard appState.autoSelectArrowOnEdit else { return }
+        appState.performFirstTimeOnboarding()
     }
 
     // MARK: - Cape File Drop Handler
