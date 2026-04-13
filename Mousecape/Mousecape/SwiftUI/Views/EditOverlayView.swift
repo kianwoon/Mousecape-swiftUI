@@ -375,6 +375,7 @@ struct CursorDetailView: View {
     @State private var availableTypes: [CursorType] = CursorType.allCases
     @State private var showAliasOverwriteAlert = false
     @State private var hasCheckedAliasConsistency = false
+    @State private var cursorScale: Double = 1.0
 
     // MARK: - Validation
 
@@ -393,6 +394,9 @@ struct CursorDetailView: View {
 
     /// Check if FPS is valid (> 0)
     private var isFPSValid: Bool { fps > 0 }
+
+    /// Check if scale is valid (> 0)
+    private var isScaleValid: Bool { cursorScale > 0 }
 
     // Calculate available cursor types (current type + types not used by other cursors)
     private func calculateAvailableTypes() -> [CursorType] {
@@ -700,6 +704,65 @@ struct CursorDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+
+                    Divider()
+
+                    // Scale section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Scale")
+                            .font(.headline)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Scale: \(cursorScale, specifier: "%.1f")x")
+                                .font(.subheadline)
+                                .monospacedDigit()
+                            Slider(value: $cursorScale, in: 0.5...64.0, step: 0.5) {
+                            } minimumValueLabel: {
+                                Text("0.5x")
+                            } maximumValueLabel: {
+                                Text("64x")
+                            } onEditingChanged: { isEditing in
+                                guard !isEditing else { return }
+                                guard !isLoadingValues else { return }
+                                let oldScale = appState.getPerCursorScale(for: cursor.identifier)
+                                let newScale = cursorScale
+                                guard abs(oldScale - newScale) > 0.01 else { return }
+                                appState.setPerCursorScale(newScale, for: cursor.identifier)
+                                appState.registerUndo(
+                                    undo: { [weak cursor] in
+                                        guard let cursor = cursor else { return }
+                                        self.appState.setPerCursorScale(oldScale, for: cursor.identifier)
+                                        self.cursorScale = oldScale
+                                    },
+                                    redo: { [weak cursor] in
+                                        guard let cursor = cursor else { return }
+                                        self.appState.setPerCursorScale(newScale, for: cursor.identifier)
+                                        self.cursorScale = newScale
+                                    }
+                                )
+                            }
+
+                            Button("Reset to Default") {
+                                let oldScale = cursorScale
+                                cursorScale = 1.0
+                                appState.setPerCursorScale(1.0, for: cursor.identifier)
+                                appState.registerUndo(
+                                    undo: { [weak cursor] in
+                                        guard let cursor = cursor else { return }
+                                        self.appState.setPerCursorScale(oldScale, for: cursor.identifier)
+                                        self.cursorScale = oldScale
+                                    },
+                                    redo: { [weak cursor] in
+                                        guard let cursor = cursor else { return }
+                                        self.appState.setPerCursorScale(1.0, for: cursor.identifier)
+                                        self.cursorScale = 1.0
+                                    }
+                                )
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(cursorScale == 1.0)
+                        }
+                    }
                 }
                 .padding()
                 .adaptiveGlass(in: RoundedRectangle(cornerRadius: 12))
@@ -742,6 +805,8 @@ struct CursorDetailView: View {
         // Calculate FPS from frame duration
         let duration = Double(cursor.frameDuration)
         fps = duration > 0 ? 1.0 / duration : 1.0
+        // Load per-cursor scale
+        cursorScale = appState.getPerCursorScale(for: cursor.identifier)
         // Refresh available types
         availableTypes = calculateAvailableTypes()
         // Load cursor type
