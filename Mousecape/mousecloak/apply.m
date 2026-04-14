@@ -625,9 +625,21 @@ BOOL applyCape(NSDictionary *dictionary) {
             MMLog("  - %s", key.UTF8String);
         }
 
-        // Save the current system scale BEFORE resetAllCursors() might reset it
-        float savedScale = cursorScale();
-        MMLog("Saved system scale before reset: %.2f", savedScale);
+        // Derive the target scale from preferences, NOT from cursorScale().
+        // cursorScale() reads the WindowServer which can return corrupted values.
+        float savedScale;
+        {
+            BOOL mode = customScaleMode();
+            if (mode) {
+                savedScale = [MCDefault(@"MCCustomMaxScale") floatValue];
+                if (savedScale <= 0.0f) savedScale = 1.0f;
+            } else {
+                savedScale = [MCDefault(@"MCGlobalCursorScale") floatValue];
+                if (savedScale < 0.5f || savedScale > 16.0f) savedScale = 1.0f;
+            }
+        }
+        MMLog("Target scale (from prefs): %.2f (WindowServer reports: %.2f)",
+              savedScale, cursorScale());
 
         MMLog("--- Calling resetAllCursors ---");
         resetAllCursors();
@@ -777,7 +789,8 @@ BOOL applyCape(NSDictionary *dictionary) {
 
         // Force the WindowServer to flush its cursor cache and re-render
         // all registered cursors from the new image data.
-        MCForceCursorReevaluation(cursorScale());
+        // Use savedScale (from preferences) — NOT cursorScale().
+        MCForceCursorReevaluation(savedScale);
 
         return YES;
     }
@@ -802,8 +815,27 @@ BOOL applyCapeWithoutReset(NSDictionary *dictionary) {
         MMLog("Cape identifier: %s", [dictionary[MCCursorDictionaryIdentifierKey] UTF8String]);
         MMLog("Total cursors: %lu", (unsigned long)cursors.count);
 
-        float savedScale = cursorScale();
-        MMLog("Current system scale: %.2f", savedScale);
+        // Derive the target scale from preferences, NOT from cursorScale().
+        // cursorScale() reads the WindowServer's current scale, which can be
+        // corrupted by a previous race condition (e.g. stuck at 64.0 from a
+        // failed refreshSystemDefaultCursors).  Reading from preferences ensures
+        // we always restore the user's intended scale, breaking the
+        // self-reinforcing loop where cursorScale() returns a wrong value,
+        // we save it, and then can't restore because setCursorScale() rejects >16
+        // while CGSSetCursorScale() (called directly for restore) accepts anything.
+        float savedScale;
+        {
+            BOOL mode = customScaleMode();
+            if (mode) {
+                savedScale = [MCDefault(@"MCCustomMaxScale") floatValue];
+                if (savedScale <= 0.0f) savedScale = 1.0f;
+            } else {
+                savedScale = [MCDefault(@"MCGlobalCursorScale") floatValue];
+                if (savedScale < 0.5f || savedScale > 16.0f) savedScale = 1.0f;
+            }
+        }
+        MMLog("Target scale (from prefs): %.2f (WindowServer reports: %.2f)",
+              savedScale, cursorScale());
 
         // Step 1: Unregister ALL cursors to force the WindowServer to fall
         // back to its built-in native defaults (vector/high-res).  This is
@@ -902,8 +934,10 @@ BOOL applyCapeWithoutReset(NSDictionary *dictionary) {
 
         MCSetDefault(dictionary[MCCursorDictionaryIdentifierKey], MCPreferencesAppliedCursorKey);
 
-        // Force WindowServer to flush its cursor cache and re-render
-        MCForceCursorReevaluation(cursorScale());
+        // Force WindowServer to flush its cursor cache and re-render.
+        // Use savedScale (from preferences) — NOT cursorScale() which reads
+        // the WindowServer and may return a stale/corrupted value.
+        MCForceCursorReevaluation(savedScale);
 
         MMLog(BOLD GREEN "Applied %s (success: %lu, system defaults: %lu)" RESET,
               name.UTF8String, (unsigned long)successCount, (unsigned long)systemDefaultCount);
@@ -924,9 +958,21 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
         MMLog("Cape identifier: %s", [dictionary[MCCursorDictionaryIdentifierKey] UTF8String]);
         MMLog("Total cursors: %lu", (unsigned long)cursors.count);
 
-        // Save the current system scale BEFORE any changes
-        float savedScale = cursorScale();
-        MMLog("Saved system scale before apply: %.2f", savedScale);
+        // Derive the target scale from preferences, NOT from cursorScale().
+        // cursorScale() reads the WindowServer which can return corrupted values.
+        float savedScale;
+        {
+            BOOL mode = customScaleMode();
+            if (mode) {
+                savedScale = [MCDefault(@"MCCustomMaxScale") floatValue];
+                if (savedScale <= 0.0f) savedScale = 1.0f;
+            } else {
+                savedScale = [MCDefault(@"MCGlobalCursorScale") floatValue];
+                if (savedScale < 0.5f || savedScale > 16.0f) savedScale = 1.0f;
+            }
+        }
+        MMLog("Target scale (from prefs): %.2f (WindowServer reports: %.2f)",
+              savedScale, cursorScale());
 
         MMLog("--- Calling resetAllCursors ---");
         resetAllCursors();
@@ -1057,7 +1103,8 @@ NSDictionary *applyCapeWithResult(NSDictionary *dictionary) {
 
         // Force the WindowServer to flush its cursor cache and re-render
         // all registered cursors from the new image data.
-        MCForceCursorReevaluation(cursorScale());
+        // Use savedScale (from preferences) — NOT cursorScale().
+        MCForceCursorReevaluation(savedScale);
 
         // Return detailed result dictionary
         return @{
