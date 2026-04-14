@@ -1,3 +1,14 @@
+### v1.2.9 - Bug Fix
+
+**This update fixes a bug where the cursor scale could auto-jump to 64x when MousecapeHelper is running.**
+
+**Bug Fixes:**
+
+- Fixed cursor scale auto-jumping to 64x when MousecapeHelper runs in background
+- Helper now reads scale from preferences instead of WindowServer to prevent corrupted values
+
+---
+
 ### v1.2.8 - Improvement
 
 **This update improves the cursor editing experience and adds onboarding for new users.**
