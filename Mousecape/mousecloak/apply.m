@@ -274,6 +274,30 @@ static NSDictionary * _Nullable systemCapeWithIdentifier(NSString *identifier) {
         // For named cursors (com.apple.coregraphics.*), CGSCopyRegisteredCursorImages
         // should work without activation
         error = CGSCopyRegisteredCursorImages(CGSMainConnectionID(), (char *)identifier.UTF8String, &size, &hotSpot, &frameCount, &frameDuration, &representations);
+
+        // Fallback: if CGSCopyRegisteredCursorImages fails (e.g., cursor was unregistered),
+        // scan numeric IDs to find the matching system cursor and read via CoreCursorCopyImages.
+        // This is needed after resetAllCursors() unregisters named cursors but CoreCursorSet
+        // restores numeric cursors — macOS doesn't auto-fallback for named cursors.
+        if (error || !representations || !CFArrayGetCount(representations)) {
+            MMLog("  systemCape: CGSCopyRegisteredCursorImages failed for %s (err=%d), trying numeric fallback",
+                  identifier.UTF8String, (int)error);
+            for (int cursorID = 0; cursorID < 128; cursorID++) {
+                char *cname = CGSCursorNameForSystemCursor((CGSCursorID)cursorID);
+                if (!cname) continue;
+                NSString *sysName = [NSString stringWithUTF8String:cname];
+                if ([sysName isEqualToString:identifier]) {
+                    MMLog("  systemCape: Found match at cursor ID %d for %s", cursorID, cname);
+                    error = CoreCursorSet(CGSMainConnectionID(), cursorID);
+                    if (error == noErr) {
+                        error = CoreCursorCopyImages(CGSMainConnectionID(), cursorID, &representations, &size, &hotSpot, &frameCount, &frameDuration);
+                        MMLog("  systemCape: CoreCursorCopyImages result: %d, reps=%lu",
+                              (int)error, (unsigned long)(representations ? CFArrayGetCount(representations) : 0));
+                    }
+                    break;
+                }
+            }
+        }
     } else {
         // For numbered cursors (com.apple.cursor.N), CoreCursorCopyImages reads the
         // ACTIVE cursor. We must call CoreCursorSet first to activate it, just like
@@ -836,6 +860,14 @@ BOOL applyCapeWithoutReset(NSDictionary *dictionary) {
         }
         MMLog("Target scale (from prefs): %.2f (WindowServer reports: %.2f)",
               savedScale, cursorScale());
+
+        // Step 0: Create cursor registration backups before clearing.
+        // backupAllCursors() saves current cursor data as registrations under
+        // backup names (com.alexzielenski.mousecape.*). Only runs once —
+        // subsequent calls skip if backups already exist. This must happen
+        // BEFORE CoreCursorUnregisterAll() so the current state is captured.
+        MMLog("--- Backing up cursors ---");
+        backupAllCursors();
 
         // Step 1: Unregister ALL cursors to force the WindowServer to fall
         // back to its built-in native defaults (vector/high-res).  This is

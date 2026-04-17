@@ -13,56 +13,12 @@
 #import "MCDefs.h"
 #import "CGSCursor.h"
 #import <Cocoa/Cocoa.h>
-#import "scale.h"
-
-#define PERIODIC_NUDGE_INTERVAL_SEC 60.0
 
 // Forward declaration for cleanup
 static void unregisterDisplayCallback(void);
 
 // Static references for session monitor cleanup
 static CFRunLoopSourceRef g_sessionMonitorRLS = NULL;
-
-// Periodic scale nudge callback — keeps cursor registrations fresh while the Helper runs.
-// Dispatched to a background queue to avoid blocking the main thread (usleep ~90ms total).
-static void periodicNudgeCallback(CFRunLoopTimerRef timer, void *info) {
-    float scale = cursorScale();
-    if (scale <= 0.0f) {
-        MMLog("Periodic nudge: skipped — no valid scale (scale=%.2f)", scale);
-        return;
-    }
-
-    MMLog("Periodic nudge: scale=%.2f", scale);
-
-    // Run the nudge (with usleep delays) on a background thread to keep the
-    // main RunLoop responsive. CGS calls are process-level IPC and safe off-main.
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        CGSConnectionID cid = CGSMainConnectionID();
-
-        // Bump scale to force cursor system to re-evaluate registrations
-        CGSSetCursorScale(cid, scale + 0.3f);
-
-        // Small delay for cursor system to process the scale change
-        usleep(30000); // 30ms
-
-        // Restore with retry — the cursor system may not immediately apply the scale
-        float afterRestore = scale;
-        for (int retry = 0; retry < 3; retry++) {
-            CGSSetCursorScale(cid, scale);
-            afterRestore = cursorScale();
-            if (fabsf(afterRestore - scale) < 0.01f) {
-                break;
-            }
-            usleep(20000); // 20ms between retries
-        }
-
-        if (fabsf(afterRestore - scale) >= 0.01f) {
-            MMLog(RED "Periodic nudge FAILED: target=%.2f, final=%.2f" RESET, scale, afterRestore);
-        } else {
-            MMLog("Periodic nudge OK: %.2f", scale);
-        }
-    });
-}
 
 NSString *appliedCapePathForUser(NSString *user) {
     // Validate user - must not be empty or contain path separators
@@ -130,20 +86,6 @@ static void UserSpaceChanged(SCDynamicStoreRef	store, CFArrayRef changedKeys, vo
     MMLog(BOLD GREEN "User Space Changed to %s, applying cape..." RESET, [(__bridge NSString *)currentConsoleUser UTF8String]);
     MMLog("Cape path: %s", appliedPath ? appliedPath.UTF8String : "(none)");
 
-    // Restore scale FIRST — refreshSystemDefaultCursors reads cursorScale() internally,
-    // so the scale must be correct before the refresh runs.
-    if (customScaleMode()) {
-        float maxScale = [MCDefault(@"MCCustomMaxScale") floatValue];
-        if (maxScale <= 0.0f) maxScale = 1.0f;
-        MMLog("Session monitor: restoring custom scale %.2f", maxScale);
-        setCursorScale(maxScale);
-    } else {
-        float globalScale = [MCDefault(@"MCGlobalCursorScale") floatValue];
-        if (globalScale < 0.5f || globalScale > 16.0f) globalScale = 1.0f;
-        MMLog("Session monitor: restoring global scale %.2f", globalScale);
-        setCursorScale(globalScale);
-    }
-
     // Only attempt to apply if there's a valid cape path
     if (appliedPath) {
         BOOL success = applyCapeAtPath(appliedPath);
@@ -185,20 +127,6 @@ void reconfigurationCallback(CGDirectDisplayID display,
 
     NSString *capePath = appliedCapePathForUser(NSUserName());
     MMLog("Cape path: %s", capePath ? capePath.UTF8String : "(none)");
-
-    // Restore scale FIRST — refreshSystemDefaultCursors reads cursorScale() internally,
-    // so the scale must be correct before the refresh runs.
-    if (customScaleMode()) {
-        float maxScale = [MCDefault(@"MCCustomMaxScale") floatValue];
-        if (maxScale <= 0.0f) maxScale = 1.0f;
-        MMLog("Reconfig: restoring custom scale %.2f", maxScale);
-        setCursorScale(maxScale);
-    } else {
-        float globalScale = [MCDefault(@"MCGlobalCursorScale") floatValue];
-        if (globalScale < 0.5f || globalScale > 16.0f) globalScale = 1.0f;
-        MMLog("Reconfig: restoring global scale %.2f", globalScale);
-        setCursorScale(globalScale);
-    }
 
     if (capePath) {
         BOOL success = applyCapeAtPath(capePath);
@@ -298,17 +226,6 @@ void listener(void) {
             MMLog("No cape configured - refreshing system defaults at current scale");
             refreshSystemDefaultCursors();
         }
-        // Restore scale according to the active mode
-        if (customScaleMode()) {
-            float maxScale = [MCDefault(@"MCCustomMaxScale") floatValue];
-            if (maxScale <= 0.0f) maxScale = 1.0f;
-            setCursorScale(maxScale);
-        } else {
-            float globalScale = [MCDefault(@"MCGlobalCursorScale") floatValue];
-            if (globalScale < 0.5f || globalScale > 16.0f) globalScale = 1.0f;
-            setCursorScale(globalScale);
-        }
-
         CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
         MMLog("Entering run loop...");
         CFRunLoopRun();
@@ -403,19 +320,6 @@ void startSessionMonitor(void) {
         MMLog("No cape configured - refreshing system defaults at current scale");
         refreshSystemDefaultCursors();
     }
-    // Restore scale according to the active mode
-    if (customScaleMode()) {
-        float maxScale = [MCDefault(@"MCCustomMaxScale") floatValue];
-        if (maxScale <= 0.0f) maxScale = 1.0f;
-        MMLog("Session monitor: restoring custom scale %.2f", maxScale);
-        setCursorScale(maxScale);
-    } else {
-        float globalScale = [MCDefault(@"MCGlobalCursorScale") floatValue];
-        if (globalScale < 0.5f || globalScale > 16.0f) globalScale = 1.0f;
-        MMLog("Session monitor: restoring global scale %.2f", globalScale);
-        setCursorScale(globalScale);
-    }
-
     g_sessionMonitorRLS = rls;
     CFRunLoopAddSource(CFRunLoopGetMain(), rls, kCFRunLoopDefaultMode);
     MMLog("Session monitor attached to main run loop (non-blocking)");
