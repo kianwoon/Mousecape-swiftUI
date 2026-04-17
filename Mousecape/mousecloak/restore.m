@@ -6,10 +6,12 @@
 //  Copyright (c) 2014 Alex Zielenski. All rights reserved.
 //
 
-#import "backup.h"
 #import "apply.h"
+#import "backup.h"
 #import "MCPrefs.h"
 #import "MCDefs.h"
+#import "scale.h"
+#import "CGSInternal/CGSCursor.h"
 
 NSString *restoreStringForIdentifier(NSString *identifier) {
     NSString *prefix = @"com.alexzielenski.mousecape.";
@@ -46,8 +48,18 @@ void restoreCursorForIdentifier(NSString *ident) {
 void resetAllCursors(void) {
     MMLog("=== resetAllCursors ===");
 
-    // Restore all cursors (default + synonyms)
-    MMLog("--- Restoring all cursors ---");
+    // Save current scale settings
+    float originalScale;
+    CGSGetCursorScale(CGSMainConnectionID(), &originalScale);
+    id originalScalePref = MCDefault(MCPreferencesCursorScaleKey);
+
+    // Temporarily set scale to 1.0 to ensure system cursors are restored
+    // at their original size, not scaled by the current preference
+    MCSetDefault(@1.0, MCPreferencesCursorScaleKey);
+    CGSSetCursorScale(CGSMainConnectionID(), 1.0);
+
+    // Restore all cursors from backups (default + synonyms)
+    MMLog("--- Restoring all cursors from backups ---");
     MCEnumerateAllCursorIdentifiers(^(NSString *name) {
         restoreCursorForIdentifier(backupStringForIdentifier(name));
     });
@@ -59,14 +71,17 @@ void resetAllCursors(void) {
 
     if (err == 0) {
         MCSetDefault(NULL, MCPreferencesAppliedCursorKey);
-
         for (int x = 0; x < 45; x++) {
             CoreCursorSet(CGSMainConnectionID(), x);
         }
-
         MMLog(BOLD GREEN "Successfully restored all cursors." RESET);
     } else {
         MMLog(BOLD RED "Received an error while restoring core cursors." RESET);
     }
+
+    // Restore original scale settings
+    CGSSetCursorScale(CGSMainConnectionID(), originalScale);
+    MCSetDefault(originalScalePref, MCPreferencesCursorScaleKey);
+
     MMLog("=== resetAllCursors complete ===");
 }

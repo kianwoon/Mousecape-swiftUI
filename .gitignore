@@ -71,3 +71,9 @@ iOSInjectionProject/
 
 # Claude Code
 CLAUDE.md
+/TemporaryDirectory.0lHubO
+Temporary*
+_Users*
+*.zip
+settings.local.json
+.gitignore
